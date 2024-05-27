@@ -100,10 +100,10 @@ The `tcpdump` sidecar accespts the following environment variables:
      > this hierarchy guarantees that PCAP files are easily indexable and hard to override by multiple deployments/instances. It also simplifies deleting no longer needed PCAPs from specific deployments/instances.
 
 -    When defining `PCAP_ROTATE_SECS`, keep in mind that the current PCAP file is temporarily stored in the sidecar in-memory filesystem. This means that if your APP is network intensive:
-  
-    -    The longer it takes to rotate the current PCAP file, the larger the current PCAP file will be, so...
+
+     -    The longer it takes to rotate the current PCAP file, the larger the current PCAP file will be, so...
          
-    -    Larger PCAP files will require more memory to temporarily store the current one before offloading it into the Cloud Storage Bucket.
+     -    Larger PCAP files will require more memory to temporarily store the current one before offloading it into the Cloud Storage Bucket.
 
 -    Keep in mind that every Cloud Run instance will produce its own set of PCAP files, so for troubleshooting purposes, it is best to define a low Cloud Run [maximum number of instances](https://cloud.google.com/run/docs/configuring/max-instances).
 
