@@ -53,33 +53,42 @@ docker push ${TCPDUMP_IMAGE_URI}
 
 1. Define environment variables to be used during Cloud Run service deployment:
 
-    ```sh
-    export SERVICE_NAME='...'
-    export INGRESS_CONTAINER_NAME='...'
-    export INGRESS_IMAGE_URI='...'
-    export INGRESS_PORT='...'
-    export TCPDUMP_SIDECAR_NAME='...'
-    export TCPDUMP_IMAGE_URI='...' # same as the one used to build the sidecar container image
-
-    export GCS_BUCKET='...'        # the name of the Cloud Storage Bucket to mount
-    export PCAP_FILTER='...'       # the BPF filter to use; i/e: `tcp port 443`
-    export PCAP_ROTATE_SECS='...'  # how often to rocate PCAP files; default is `60` seconds 
-    ```
+     ```sh
+     export PROJECT_ID='...' # GCP Project Id hosting the Cloud Run service
+     export SERVICE_NAME='...'
+     export SERVICE_REGION='...' # GCP Region: https://cloud.google.com/about/locations
+     export SERVICE_ACCOUNT='...' # Cloud Run service's identity
+     export INGRESS_CONTAINER_NAME='...'
+     export INGRESS_IMAGE_URI='...'
+     export INGRESS_PORT='...'
+     export TCPDUMP_SIDECAR_NAME='...'
+     export TCPDUMP_IMAGE_URI='...' # same as the one used to build the sidecar container image
+     export GCS_BUCKET='...'        # the name of the Cloud Storage Bucket to mount
+     export PCAP_FILTER='...'       # the BPF filter to use; i/e: `tcp port 443`
+     export PCAP_ROTATE_SECS='...'  # how often to rocate PCAP files; default is `60` seconds 
+     ```
 
 2. Deploy the Cloud Run service including the `tcpdump` sidecar:
 
-    ```sh
-    gcloud beta run deploy ${SERVICE_NAME} \
-     --execution-environment=gen2
-     --container=${INGRESS_CONTAINER_NAME}
-     --image=${INGRESS_IMAGE_URI} \
-     --port=${INGRESS_PORT} \
-     --container=${TCPDUMP_SIDECAR_NAME} \
-     --image=${TCPDUMP_IMAGE_URI} \
-     --depends-on=${INGRESS_CONTAINER_NAME} \
-     --cpu=1 --memory=1G \
-     --set-env-vars="GCS_BUCKET=${GCS_BUCKET},PCAP_FILTER=${PCAP_FILTER},PCAP_ROTATE_SECS=${PCAP_ROTATE_SECS}"
-    ```
+     ```sh
+     gcloud beta run deploy ${SERVICE_NAME} \
+       --project=${PROJECT_ID} \
+       --region=${SERVICE_REGION} \
+       --execution-environment=gen2 \
+       --service-account=${SERVICE_ACCOUNT} \
+       --container=${INGRESS_CONTAINER_NAME}-1 \
+       --image=${INGRESS_IMAGE_URI} \
+       --cpu=2 --memory=2G \
+       --port=${INGRESS_PORT} \
+       --set-env-vars='SUDO_ACCESS=true,PASSWORD_ACCESS=true,LOG_STDOUT=true' \
+       --container=${TCPDUMP_SIDECAR_NAME}-1 \
+       --image=${TCPDUMP_IMAGE_URI} \
+       --cpu=1 --memory=1G \
+       --set-env-vars="GCS_BUCKET=${GCS_BUCKET},PCAP_FILTER=${PCAP_FILTER},PCAP_ROTATE_SECS=${PCAP_ROTATE_SECS}" \
+       --depends-on=${INGRESS_CONTAINER_NAME}-1
+     ```
+
+> See the full list of available falgs for `gcloud run deplot` at https://cloud.google.com/sdk/gcloud/reference/run/deploy
 
 ## Available configurations
 
@@ -95,7 +104,9 @@ The `tcpdump` sidecar accespts the following environment variables:
 
 ## Considerations
 
--    All PCAP files will be stored within the Cloud Storage Bucket with the following "hierarchy": `PROJECT_ID`/`SERVICE_NAME`/`GCP_REGION`/`REVISION_NAME`/`DEPLOYMENT_DATETIME`/`INSTANCE_ID`
+-    Packet capturing using `tcpdump` requires raw sockets, which is only available for Cloud Run **gen2** execution environment as it offers [full Linux compatibility](https://cloud.google.com/run/docs/about-execution-environments#:~:text=second%20generation%20execution%20environment%20provides%20full%20Linux%20compatibility).
+
+-    All PCAP files will be stored within the Cloud Storage Bucket with the following "hierarchy": `PROJECT_ID`/`SERVICE_NAME`/`GCP_REGION`/`REVISION_NAME`/`DEPLOYMENT_DATETIME`/`INSTANCE_ID`.
 
      > this hierarchy guarantees that PCAP files are easily indexable and hard to override by multiple deployments/instances. It also simplifies deleting no longer needed PCAPs from specific deployments/instances.
 

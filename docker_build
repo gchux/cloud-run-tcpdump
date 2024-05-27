@@ -20,7 +20,7 @@ else
 fi
 
 # build `pcap_fsn` and extract it into `CWD`/bin
-docker build --file=$(pwd)/pcap-fsnotify/Dockerfile --output "$(pwd)/bin" --target releaser $(pwd)/pcap-fsnotify
+docker build --file=$(pwd)/pcap-fsnotify/Dockerfile --no-cache --output "$(pwd)/bin" --target releaser $(pwd)/pcap-fsnotify
 
 # build `tcpdump` sidecar image
 docker build --file=$(pwd)/Dockerfile --no-cache -t ${1} $(pwd)
