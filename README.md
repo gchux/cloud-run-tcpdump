@@ -1,4 +1,4 @@
-# Cloud Run TCPDUMP sidecar
+# Cloud Run `tcpdump` sidecar
 
 This repository contains the source code to create a container image containing `tcpdump` to perform packet capture in Cloud Run multi-container deployments.
 
@@ -8,7 +8,7 @@ During development, it is often useful to perform packet capture to troubleshoot
 
 This container image is to be used as a sidecar of the Cloud Run ingress container in order to perform a packet capture using `tcpdump` within the same network namespace.
 
-The sidecar approach enables decoupling from the main –ingress– container so that it does not require any modifications to perform a packet capture; additionally, sidecars use their own resources which allows `tcpdump` to not compete with the main app resources allocation.
+The sidecar approach enables decoupling from the main –*ingress*– container so that it does not require any modifications to perform a packet capture; additionally, sidecars use their own resources which allows `tcpdump` to not compete with the main app resources allocation.
 
 ## Building blocks
 
@@ -101,9 +101,9 @@ The `tcpdump` sidecar accespts the following environment variables:
 
 -    When defining `PCAP_ROTATE_SECS`, keep in mind that the current PCAP file is temporarily stored in the sidecar in-memory filesystem. This means that if your APP is network intensive:
   
-         -    The longer it takes to rotate the current PCAP file, the larger the current PCAP file will be, so...
+    -    The longer it takes to rotate the current PCAP file, the larger the current PCAP file will be, so...
          
-         -    Larger PCAP files will require more memory to temporarily store the current one before offloading it into the Cloud Storage Bucket.
+    -    Larger PCAP files will require more memory to temporarily store the current one before offloading it into the Cloud Storage Bucket.
 
 -    Keep in mind that every Cloud Run instance will produce its own set of PCAP files, so for troubleshooting purposes, it is best to define a low Cloud Run [maximum number of instances](https://cloud.google.com/run/docs/configuring/max-instances).
 
