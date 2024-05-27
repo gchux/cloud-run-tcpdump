@@ -12,11 +12,11 @@ The sidecar approach enables decoupling from the main –*ingress*– container 
 
 ## Building blocks
 
-- [Ubuntu 22.04 official docker image](https://hub.docker.com/_/ubuntu).
-- [`tcpdump`](https://www.tcpdump.org/) installed from [Ubuntu's official repository](https://packages.ubuntu.com/search?keywords=tcpdump).
-- [GCSFuse](https://github.com/GoogleCloudPlatform/gcsfuse).
-- [fsnotify](https://github.com/fsnotify/fsnotify).
-- [Docker Engine](https://docs.docker.com/engine/) and [Docker CLI](https://docs.docker.com/engine/reference/commandline/cli/) to build the sidecar container image.
+- [Ubuntu 22.04 official docker image](https://hub.docker.com/_/ubuntu)
+- [`tcpdump`](https://www.tcpdump.org/) installed from [Ubuntu's official repository](https://packages.ubuntu.com/search?keywords=tcpdump)
+- [GCSFuse](https://github.com/GoogleCloudPlatform/gcsfuse)
+- [fsnotify](https://github.com/fsnotify/fsnotify)
+- [Docker Engine](https://docs.docker.com/engine/) and [Docker CLI](https://docs.docker.com/engine/reference/commandline/cli/) to build the sidecar container image
 - [Cloud Run](https://cloud.google.com/run/docs/deploying#multicontainer-yaml) **gen2** [execution environment](https://cloud.google.com/run/docs/about-execution-environments)
 
 ## How it works
@@ -74,11 +74,10 @@ docker push ${TCPDUMP_IMAGE_URI}
      gcloud beta run deploy ${SERVICE_NAME} \
        --project=${PROJECT_ID} \
        --region=${SERVICE_REGION} \
-       --execution-environment=gen2 \
+       --execution-environment=gen2 \ # execution environment gen2 is mandatory
        --service-account=${SERVICE_ACCOUNT} \
        --container=${INGRESS_CONTAINER_NAME}-1 \
        --image=${INGRESS_IMAGE_URI} \
-       --cpu=2 --memory=2G \
        --port=${INGRESS_PORT} \
        --set-env-vars='SUDO_ACCESS=true,PASSWORD_ACCESS=true,LOG_STDOUT=true' \
        --container=${TCPDUMP_SIDECAR_NAME}-1 \
