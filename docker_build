@@ -1,0 +1,23 @@
+#!/usr/bin/env bash
+
+# set -eux -o pipefail
+
+if [ "${1}" = "" ]
+then
+  echo "Usage: $0 <docker_image_uri>"
+  exit
+fi
+
+BIN_DIR="$(pwd)/bin"
+
+if [ -d ${BIN_DIR} ]; then
+  echo "cleaning release directory: ${BIN_DIR}"
+  rm -rvf ${BIN_DIR}/*
+else
+  echo "creating release directory: ${BIN_DIR}"
+  mkdir -p ${BIN_DIR}
+fi
+
+docker build --file=$(pwd)/pcap-fsnotify/Dockerfile --output "$(pwd)/bin" --target releaser $(pwd)/pcap-fsnotify
+
+docker build --file=$(pwd)/Dockerfile --no-cache -t ${1} $(pwd)
