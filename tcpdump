@@ -41,4 +41,4 @@ sleep 3 # wait for PCAP FS exporter to initialize
 
 chmod -R 777 ${PCAP_TMP} # this is required because of a bug in TCPDUMP files rotation
 TCPDUMP_FLAGS="${PCAP_FLAGS:--n -s 0}"
-tcpdump -i any ${TCPDUMP_FLAGS} -w "${PCAP_FILE}_%Y%m%d_%H%M%S.${PCAP_EXT}" -G ${PCAP_SECS} "${PCAP_FILTER}"
+tcpdump -i any ${TCPDUMP_FLAGS} -w "${PCAP_FILE}_%Y%m%d_%H%M%S.${PCAP_EXT}" -Z root -G ${PCAP_SECS} "${PCAP_FILTER}"
