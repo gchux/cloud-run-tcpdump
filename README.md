@@ -79,7 +79,6 @@ docker push ${TCPDUMP_IMAGE_URI}
        --container=${INGRESS_CONTAINER_NAME}-1 \
        --image=${INGRESS_IMAGE_URI} \
        --port=${INGRESS_PORT} \
-       --set-env-vars='SUDO_ACCESS=true,PASSWORD_ACCESS=true,LOG_STDOUT=true' \
        --container=${TCPDUMP_SIDECAR_NAME}-1 \
        --image=${TCPDUMP_IMAGE_URI} \
        --cpu=1 --memory=1G \
