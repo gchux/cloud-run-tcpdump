@@ -1,3 +1,5 @@
+# syntax=docker/dockerfile:1.4
+
 FROM golang:1.22.2-bookworm AS build
 
 WORKDIR /app
