@@ -25,11 +25,11 @@ The sidecar uses:
 
 -    **`tcpdump`** to capture packets. All containers use the same network namestap and so this sidecar captures packets from all containers within the same deployment.
 
--    [**`pcap-fsnotify`**](pcap-fsnotify/main.go) to listen for newly created PCAP files, optionally compress PCAPs ( _**recommended**_ ) and move them into Cloud Storate mount point.
+-    [**`pcap-fsnotify`**](pcap-fsnotify/main.go) to listen for newly created **PCAP files**, optionally compress PCAPs ( _**recommended**_ ) and move them into Cloud Storate mount point.
 
--    **GCSFuse** to mount a Cloud Storage Bucket to move compressed PCAP files into.
+-    **GCSFuse** to mount a Cloud Storage Bucket to move compressed **PCAP files** into.
 
-     > PCAP files are moved from the sidecar's in-memory filesystem into the mounted Cloud Storage Bucket.
+     > **PCAP files** are moved from the sidecar's in-memory filesystem into the mounted Cloud Storage Bucket.
 
 ## How to build the sidecar
 
@@ -93,34 +93,34 @@ docker push ${TCPDUMP_IMAGE_URI}
 
 The `tcpdump` sidecar accespts the following environment variables:
 
--    `GCS_BUCKET`: (string, required) the name of the Cloud Storage Bucket to be mounted and used to store PCAP files.
+-    `GCS_BUCKET`: (string, required) the name of the Cloud Storage Bucket to be mounted and used to store **PCAP files**.
 -    `PCAP_FILTER`: (string required) standard `tcpdump` bpf filters to scope the packet capture to specific traffic; i/e: `tcp`.
 -    `PCAP_FLAGS`: (string, optional) [flags](https://www.tcpdump.org/manpages/tcpdump.1.html) to be passed to `tcpdump`; default value is `-n -s 0`.
--    `PCAP_ROTATE_SECS`: (number, optional) how often to rotate PCAP files created by `tcpdump`; default value is `60` seconds.
+-    `PCAP_ROTATE_SECS`: (number, optional) how often to rotate **PCAP files** created by `tcpdump`; default value is `60` seconds.
 -    `GCS_MOUNT`: (string, optional) where in the sidecar in-memory filesystem to mount the Cloud Storage Bucket; default value is `/pcap`.
--    `PCAP_FILE_EXT`: (string, optional) extension to be used for PCAP files; default value is `pcap`.
--    `PCAP_COMPRESS`: (boolean, optional) whether to compress PCAP files or not; default value is `true`.
+-    `PCAP_FILE_EXT`: (string, optional) extension to be used for **PCAP files**; default value is `pcap`.
+-    `PCAP_COMPRESS`: (boolean, optional) whether to compress **PCAP files** or not; default value is `true`.
 
 ## Considerations
 
 -    Packet capturing using `tcpdump` requires raw sockets, which is only available for Cloud Run **gen2** execution environment as it offers [full Linux compatibility](https://cloud.google.com/run/docs/about-execution-environments#:~:text=second%20generation%20execution%20environment%20provides%20full%20Linux%20compatibility).
 
--    All PCAP files will be stored within the Cloud Storage Bucket with the following "hierarchy": `PROJECT_ID`/`SERVICE_NAME`/`GCP_REGION`/`REVISION_NAME`/`DEPLOYMENT_DATETIME`/`INSTANCE_ID`.
+-    All **PCAP files** will be stored within the Cloud Storage Bucket with the following "hierarchy": `PROJECT_ID`/`SERVICE_NAME`/`GCP_REGION`/`REVISION_NAME`/`DEPLOYMENT_DATETIME`/`INSTANCE_ID`.
 
-     > this hierarchy guarantees that PCAP files are easily indexable and hard to override by multiple deployments/instances. It also simplifies deleting no longer needed PCAPs from specific deployments/instances.
+     > this hierarchy guarantees that **PCAP files** are easily indexable and hard to override by multiple deployments/instances. It also simplifies deleting no longer needed PCAPs from specific deployments/instances.
 
 -    When defining `PCAP_ROTATE_SECS`, keep in mind that the current PCAP file is temporarily stored in the sidecar in-memory filesystem. This means that if your APP is network intensive:
 
      -    The longer it takes to rotate the current PCAP file, the larger the current PCAP file will be, so...
          
-     -    Larger PCAP files will require more memory to temporarily store the current one before offloading it into the Cloud Storage Bucket.
+     -    Larger **PCAP files** will require more memory to temporarily store the current one before offloading it into the Cloud Storage Bucket.
 
--    Keep in mind that every Cloud Run instance will produce its own set of PCAP files, so for troubleshooting purposes, it is best to define a low Cloud Run [maximum number of instances](https://cloud.google.com/run/docs/configuring/max-instances).
+-    Keep in mind that every Cloud Run instance will produce its own set of **PCAP files**, so for troubleshooting purposes, it is best to define a low Cloud Run [maximum number of instances](https://cloud.google.com/run/docs/configuring/max-instances).
 
      > It is equally important to define a well scoped BPF filter in order to capture only the required packets and skip everything else. The `tcpdump` flag [--snapshot-length](https://www.tcpdump.org/manpages/tcpdump.1.html) is also useful to limit the bytes of data to capture from each packet.
 
 -    Packet capturing is always on while the instance is available, so it is best to rollback to a non packet capturing revision and delete the packet-capturing one after you have captured all the required traffic.
 
--    The full packet capture from a Cloud Run instance will be composed out of multiple smaller ( optionally compressed ) PCAP files. Use a tool like [mergecap](https://www.wireshark.org/docs/man-pages/mergecap.html) or [joincap](https://github.com/assafmo/joincap) to combine them into one.
+-    The full packet capture from a Cloud Run instance will be composed out of multiple smaller ( optionally compressed ) **PCAP files**. Use a tool like [mergecap](https://www.wireshark.org/docs/man-pages/mergecap.html) or [joincap](https://github.com/assafmo/joincap) to combine them into one.
 
--    In order to be able to mount the Cloud Storage Bucket and store PCAP files, [Cloud Run's identity](https://cloud.google.com/run/docs/securing/service-identity) must have proper [roles/permissions](https://cloud.google.com/storage/docs/access-control/iam-permissions).
+-    In order to be able to mount the Cloud Storage Bucket and store **PCAP files**, [Cloud Run's identity](https://cloud.google.com/run/docs/securing/service-identity) must have proper [roles/permissions](https://cloud.google.com/storage/docs/access-control/iam-permissions).
