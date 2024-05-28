@@ -35,7 +35,11 @@ The sidecar uses:
 
 1. Define the `PROJECT_ID` environment variable; i/e: `export PROJECT_ID='...'`.
 
-2. Clone this repository: `git clone https://github.com/gchux/cloud-run-tcpdump.git`.
+2. Clone this repository: 
+
+     ```sh
+     git clone --depth=1 --branch=main --single-branch https://github.com/gchux/cloud-run-tcpdump.git
+     ```
 
      > If you prefer to let Cloud Build perform all the tasks, go directly to build [using Cloud Build](#using-cloud-build)
 
