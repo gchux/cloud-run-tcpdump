@@ -31,7 +31,9 @@ gcsfuse --app-name=tcpdump \
   --log-format=text -o rw ${GCS_BUCKET} ${PCAP_MNT}
 
 # PCAP files will be indexed by Cloud RUN service, region, revision, deployment-date and instance-id
-PCAP_DIR="${PCAP_MNT}/${PROJECT_ID}/${K_SERVICE}/${GCP_REGION}/${K_REVISION}/${PCAP_DATE}/${INSTANCE_ID}"
+export GCS_DIR="${PROJECT_ID}/${K_SERVICE}/${GCP_REGION}/${K_REVISION}/${PCAP_DATE}/${INSTANCE_ID}"
+echo "[INFO] - PCAP files available at: gs://${GCS_BUCKET}/${GCS_DIR}"
+PCAP_DIR="${PCAP_MNT}/${GCS_DIR}"
 mkdir -p ${PCAP_DIR}
 
 # listen for new PCAP files at `PCAP_TMP` and move them to GCS Bucket mounted on `PCAP_MNT`
