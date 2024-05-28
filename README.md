@@ -105,7 +105,7 @@ gcloud builds submit \
        --depends-on=${INGRESS_CONTAINER_NAME}-1
      ```
 
-> See the full list of available falgs for `gcloud run deplot` at https://cloud.google.com/sdk/gcloud/reference/run/deploy
+> See the full list of available falgs for `gcloud run deploy` at https://cloud.google.com/sdk/gcloud/reference/run/deploy
 
 ## Available configurations
 
