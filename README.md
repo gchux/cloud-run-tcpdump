@@ -134,17 +134,17 @@ The `tcpdump` sidecar accespts the following environment variables:
 
 ## Considerations
 
--    The Cloud Storage Bucket mounted by the `tcpdump` side car is not accessible by the main –ingress– container.
+-    The Cloud Storage Bucket mounted by the `tcpdump` sidecar is not accessible by the main –ingress– container.
 
 -    Packet capturing using `tcpdump` requires raw sockets, which is only available for Cloud Run **gen2** execution environment as it offers [full Linux compatibility](https://cloud.google.com/run/docs/about-execution-environments#:~:text=second%20generation%20execution%20environment%20provides%20full%20Linux%20compatibility).
 
--    All **PCAP files** will be stored within the Cloud Storage Bucket with the following "hierarchy": `PROJECT_ID`/`SERVICE_NAME`/`GCP_REGION`/`REVISION_NAME`/`INSTANCE_STARTUP_TIMESTAMP`/`INSTANCE_ID`.
+-    All **PCAP files** will be stored within the Cloud Storage Bucket with the following "*hierarchy*": `PROJECT_ID`/`SERVICE_NAME`/`GCP_REGION`/`REVISION_NAME`/`INSTANCE_STARTUP_TIMESTAMP`/`INSTANCE_ID`.
 
      > this hierarchy guarantees that **PCAP files** are easily indexable and hard to override by multiple deployments/instances. It also simplifies deleting no longer needed PCAPs from specific deployments/instances.
 
--    When defining `PCAP_ROTATE_SECS`, keep in mind that the current PCAP file is temporarily stored in the sidecar in-memory filesystem. This means that if your APP is network intensive:
+-    When defining `PCAP_ROTATE_SECS`, keep in mind that the current **PCAP file** is temporarily stored in the sidecar in-memory filesystem. This means that if your APP is network intensive:
 
-     -    The longer it takes to rotate the current PCAP file, the larger the current PCAP file will be, so...
+     -    The longer it takes to rotate the current **PCAP file**, the larger the current **PCAP file** will be, so...
          
      -    Larger **PCAP files** will require more memory to temporarily store the current one before offloading it into the Cloud Storage Bucket.
 
