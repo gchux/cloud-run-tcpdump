@@ -89,7 +89,7 @@ func main() {
     }
     defer watcher.Close()
 
-    // Start listening for events.
+    // Start listening for FS events at PCAP files source directory.
     go func() {
 
         var iteration int64 = 0;
@@ -129,7 +129,7 @@ func main() {
         }
     }()
 
-    // Add a path.
+    // Watch the PCAP files source directory for FS events.
     err = watcher.Add(*src_dir)
     if err != nil {
         log.Fatal(err)
