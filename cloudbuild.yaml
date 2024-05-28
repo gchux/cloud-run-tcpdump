@@ -1,9 +1,18 @@
 steps:
-  - id: "build tcpdump image"
-    name: 'gcr.io/cloud-builders/docker'
+  - name: 'gcr.io/cloud-builders/git'
+    id: 'clone_git_repo'
+    args:
+      - 'clone'
+      - '--depth=1'
+      - '--branch=main'
+      - '--single-branch'
+      - 'https://github.com/gchux/cloud-run-tcpdump.git'
+  - name: 'gcr.io/cloud-builders/docker'
+    id: "build_sidecar_image"
     entrypoint: 'bash'
     args:
       - 'docker_build'
       - '${_REPO_LOCATION}-docker.pkg.dev/${PROJECT_ID}/${_REPO_NAME}/${_IMAGE_NAME}:${_IMAGE_TAG}'
+    dir: 'cloud-run-tcpdump'
 images: ['${_REPO_LOCATION}-docker.pkg.dev/${PROJECT_ID}/${_REPO_NAME}/${_IMAGE_NAME}:${_IMAGE_TAG}']
 tags: ['tcpdump']
