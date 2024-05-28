@@ -1,6 +1,6 @@
 steps:
-  - id: "build tcpdump image"
-    name: 'gcr.io/cloud-builders/docker'
+  - name: 'gcr.io/cloud-builders/docker'
+    id: "build_sidecar_image"
     entrypoint: 'bash'
     args:
       - 'docker_build'

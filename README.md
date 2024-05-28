@@ -33,9 +33,11 @@ The sidecar uses:
 
 ## How to build the sidecar
 
-1. Define the `PROJECT_ID` environemtn variable; i/e: `export PROJECT_ID='...'`.
+1. Define the `PROJECT_ID` environment variable; i/e: `export PROJECT_ID='...'`.
 
 2. Clone this repository: `git clone https://github.com/gchux/cloud-run-tcpdump.git`.
+
+     > If you prefer to let Cloud Build perform all the tasks, go directly to build [using Cloud Build](#using-cloud-build)
 
 3. Move into the repository local directory: `cd cloud-run-tcpdump`.
 
@@ -43,29 +45,39 @@ Continue with one of the following alternatives:
 
 ### Using a local environment or [Cloud Shell](https://cloud.google.com/shell/docs/launching-cloud-shell)
 
-```sh
-export TCPDUMP_IMAGE_URI='...' # this is usually Artifact Registry
-./docker_build ${TCPDUMP_IMAGE_URI}
-docker push ${TCPDUMP_IMAGE_URI}
-```
+4. Build and push the `tcpdump` sidecar container image:
+
+     ```sh
+     export TCPDUMP_IMAGE_URI='...' # this is usually Artifact Registry
+     ./docker_build ${TCPDUMP_IMAGE_URI}
+     docker push ${TCPDUMP_IMAGE_URI}
+     ```
 
 ### Using [Cloud Build](https://cloud.google.com/build/docs/build-config-file-schema)
 
 This approach assumes that Artifact Registry is available in `PROJECT_ID`.
 
-```sh
-export REPO_LOCATION='...' # Artifact Registry Docker repository location
-export REPO_NAME='...' # Artifact Registry Docker repository name
-export IMAGE_NAME='...' # container image name; i/e: `sidecars/tcpdump` 
-export IMAGE_VERSION='...' # container image version; i/e: `latest`
+> If you skipped step (2), clone the [**gcb** branch](https://github.com/gchux/cloud-run-tcpdump/tree/gcb):
+> `git clone --depth=1 --branch=gcb --single-branch https://github.com/gchux/cloud-run-tcpdump.git`
 
-export TCPDUMP_IMAGE_URI="${REPO_LOCATION}-docker.pkg.dev/${PROJECT_ID}/${IMAGE_NAME}:${IMAGE_VERSION}" # using Artifact Registry
+4. Define the following environment variables:
 
-gcloud builds submit \
-  --project=${PROJECT_ID} \
-  --config=$(pwd)/cloudbuild.yaml \
-  --substitutions="_REPO_LOCATION=${REPO_LOCATION},_REPO_NAME=${REPO_NAME},_IMAGE_NAME=${IMAGE_NAME},_IMAGE_VERSION=${IMAGE_VERSION}' $(pwd)
-```
+     ```sh
+     export REPO_LOCATION='...' # Artifact Registry Docker repository location
+     export REPO_NAME='...' # Artifact Registry Docker repository name
+     export IMAGE_NAME='...' # container image name; i/e: `sidecars/tcpdump` 
+     export IMAGE_VERSION='...' # container image version; i/e: `latest`
+     export TCPDUMP_IMAGE_URI="${REPO_LOCATION}-docker.pkg.dev/${PROJECT_ID}/${IMAGE_NAME}:${IMAGE_VERSION}" # using Artifact Registry
+     ```
+
+5. Build and push the `tcpdump` sidecar container image using Cloud Build: 
+
+     ```sh
+     gcloud builds submit \
+       --project=${PROJECT_ID} \
+       --config=$(pwd)/cloudbuild.yaml \
+       --substitutions="_REPO_LOCATION=${REPO_LOCATION},_REPO_NAME=${REPO_NAME},_IMAGE_NAME=${IMAGE_NAME},_IMAGE_VERSION=${IMAGE_VERSION}' $(pwd)
+     ```
 
 > See the full list of available flags for `gcloud builds submit`: https://cloud.google.com/sdk/gcloud/reference/builds/submit
 
