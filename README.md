@@ -92,13 +92,13 @@ docker push ${TCPDUMP_IMAGE_URI}
 
 The `tcpdump` sidecar accespts the following environment variables:
 
--    `GCS_BUCKET`: (string, required) the name of the Cloud Storage Bucket to be mounted and used to store **PCAP files**.
--    `PCAP_FILTER`: (string required) standard `tcpdump` bpf filters to scope the packet capture to specific traffic; i/e: `tcp`.
--    `PCAP_FLAGS`: (string, optional) [flags](https://www.tcpdump.org/manpages/tcpdump.1.html) to be passed to `tcpdump`; default value is `-n -s 0`.
--    `PCAP_ROTATE_SECS`: (number, optional) how often to rotate **PCAP files** created by `tcpdump`; default value is `60` seconds.
--    `GCS_MOUNT`: (string, optional) where in the sidecar in-memory filesystem to mount the Cloud Storage Bucket; default value is `/pcap`.
--    `PCAP_FILE_EXT`: (string, optional) extension to be used for **PCAP files**; default value is `pcap`.
--    `PCAP_COMPRESS`: (boolean, optional) whether to compress **PCAP files** or not; default value is `true`.
+-    `GCS_BUCKET`: (string, **required**) the name of the Cloud Storage Bucket to be mounted and used to store **PCAP files**.
+-    `PCAP_FILTER`: (string **required**) standard `tcpdump` bpf filters to scope the packet capture to specific traffic; i/e: `tcp`.
+-    `PCAP_FLAGS`: (string, *optional*) [flags](https://www.tcpdump.org/manpages/tcpdump.1.html) to be passed to `tcpdump`; default value is `-n -s 0`.
+-    `PCAP_ROTATE_SECS`: (number, *optional*) how often to rotate **PCAP files** created by `tcpdump`; default value is `60` seconds.
+-    `GCS_MOUNT`: (string, *optional*) where in the sidecar in-memory filesystem to mount the Cloud Storage Bucket; default value is `/pcap`.
+-    `PCAP_FILE_EXT`: (string, *optional*) extension to be used for **PCAP files**; default value is `pcap`.
+-    `PCAP_COMPRESS`: (boolean, *optional*) whether to compress **PCAP files** or not; default value is `true`.
 
 ## Considerations
 
