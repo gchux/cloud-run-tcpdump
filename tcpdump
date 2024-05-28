@@ -3,7 +3,7 @@
 set -x
 
 export MDS_URL='http://metadata.google.internal/computeMetadata/v1'
-export MDS_CURL="curl -s -H 'Metadata-Flavor: Google' ${MDS_URL}"
+export MDS_CURL="curl -s -H Metadata-Flavor:Google ${MDS_URL}"
 
 PROJECT_ID=$(${MDS_CURL}/project/project-id)
 INSTANCE_ID=$(${MDS_CURL}/instance/id)
