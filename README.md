@@ -58,6 +58,7 @@ Continue with one of the following alternatives:
 This approach assumes that Artifact Registry is available in `PROJECT_ID`.
 
 > If you skipped step (2), clone the [**gcb** branch](https://github.com/gchux/cloud-run-tcpdump/tree/gcb):
+>
 > `git clone --depth=1 --branch=gcb --single-branch https://github.com/gchux/cloud-run-tcpdump.git`
 
 4. Define the following environment variables:
