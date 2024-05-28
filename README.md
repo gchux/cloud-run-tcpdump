@@ -141,6 +141,39 @@ The `tcpdump` sidecar accespts the following environment variables:
 
 -    Packet capturing is always on while the instance is available, so it is best to rollback to a non packet capturing revision and delete the packet-capturing one after you have captured all the required traffic.
 
--    The full packet capture from a Cloud Run instance will be composed out of multiple smaller ( optionally compressed ) **PCAP files**. Use a tool like [mergecap](https://www.wireshark.org/docs/man-pages/mergecap.html) or [joincap](https://github.com/assafmo/joincap) to combine them into one.
+-    The full packet capture from a Cloud Run instance will be composed out of multiple smaller ( optionally compressed ) **PCAP files**. Use a tool like [mergecap](https://www.wireshark.org/docs/man-pages/mergecap.html) to combine them into one.
 
 -    In order to be able to mount the Cloud Storage Bucket and store **PCAP files**, [Cloud Run's identity](https://cloud.google.com/run/docs/securing/service-identity) must have proper [roles/permissions](https://cloud.google.com/storage/docs/access-control/iam-permissions).
+
+## Download and Merge all PCAP Files
+
+1. Use Cloud Logging to look for the entry starting with: `[INFO] - PCAP files available at: gs://`...
+
+     It may be useful to use the following filter:
+
+     ```
+     resource.type = "cloud_run_revision"
+     resource.labels.service_name = "<cloud-run-service-name>"
+     resource.labels.location = "<cloud-run-service-region>"
+     "<cloud-run-revision-name>"
+     "PCAP files available at:"
+     ```
+
+     This entry contains the exact Cloud Storate path to be used to download all the **PCAP files**.
+
+     Copy the full path including the prefix `gs://`, and assign it to the environment variable `GCS_PCAP_PATH`.
+
+2. Download all **PCAP files** using:
+
+
+     ```sh
+     mkdir pcap_files
+     cd  pcap_files
+     gcloud storage cp ${GCS_PCAP_PATH}/*.gz . # use `${GCS_PCAP_PATH}/*.pcap` if `PCAP_COMPRESS` was set to `false`
+     ```
+
+3. If `PCAP_COMPRESS` was set to `true`, uncompress all the **PCAP files**: `gunzip ./*.gz`
+
+4. Merge all **PCAP files** into a single file: `mergecap -w full.pcap -F pcap ./*.pcap`
+
+     > See `mergecap` docs: https://www.wireshark.org/docs/man-pages/mergecap.html
