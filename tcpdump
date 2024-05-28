@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 
-set -x
+set -xm
 
 export MDS_URL='http://metadata.google.internal/computeMetadata/v1'
 export MDS_CURL="curl -s -H Metadata-Flavor:Google ${MDS_URL}"
@@ -28,7 +28,8 @@ mkdir -p ${PCAP_TMP}
 # Start GCSFuse to mount a bucket into `GCS_MOUNT`
 gcsfuse --app-name=tcpdump \
   --dir-mode=777 --file-mode=777 \
-  --log-format=text -o rw ${GCS_BUCKET} ${PCAP_MNT}
+  --log-file=/dev/stdout --log-format=text \
+  -o rw ${GCS_BUCKET} ${PCAP_MNT}
 
 # PCAP files will be indexed by Cloud RUN service, region, revision, deployment-date and instance-id
 export GCS_DIR="${PROJECT_ID}/${K_SERVICE}/${GCP_REGION}/${K_REVISION}/${PCAP_DATE}/${INSTANCE_ID}"
