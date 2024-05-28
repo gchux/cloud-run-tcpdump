@@ -121,6 +121,8 @@ The `tcpdump` sidecar accespts the following environment variables:
 
 ## Considerations
 
+-    The Cloud Storage Bucket mounted by the `tcpdump` side car is not accessible by the main –ingress– container.
+
 -    Packet capturing using `tcpdump` requires raw sockets, which is only available for Cloud Run **gen2** execution environment as it offers [full Linux compatibility](https://cloud.google.com/run/docs/about-execution-environments#:~:text=second%20generation%20execution%20environment%20provides%20full%20Linux%20compatibility).
 
 -    All **PCAP files** will be stored within the Cloud Storage Bucket with the following "hierarchy": `PROJECT_ID`/`SERVICE_NAME`/`GCP_REGION`/`REVISION_NAME`/`DEPLOYMENT_DATETIME`/`INSTANCE_ID`.
