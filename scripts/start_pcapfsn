@@ -1,0 +1,11 @@
+#!/usr/bin/env bash
+
+while : ; do
+    [[ -d ${PCAP_DIR} ]] && break
+    echo "[INFO] – PCAP files dir \'${PCAP_DIR}\' is not available"
+    sleep 1
+done
+
+set -x
+
+exec env /bin/pcap_fsn -src=${PCAP_TMP} -dst=${PCAP_DIR} -ext=${PCAP_EXT} -gzip=${PCAP_GZIP}

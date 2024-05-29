@@ -16,6 +16,7 @@ The sidecar approach enables decoupling from the main –*ingress*– container 
 - [`tcpdump`](https://www.tcpdump.org/) installed from [Ubuntu's official repository](https://packages.ubuntu.com/search?keywords=tcpdump)
 - [GCSFuse](https://github.com/GoogleCloudPlatform/gcsfuse)
 - [fsnotify](https://github.com/fsnotify/fsnotify)
+- [Go Supervisord](https://github.com/ochinchina/supervisord) to orchestrate startup processes execution.
 - [Docker Engine](https://docs.docker.com/engine/) and [Docker CLI](https://docs.docker.com/engine/reference/commandline/cli/) to build the sidecar container image
 - [Cloud Run](https://cloud.google.com/run/docs/deploying#multicontainer-yaml) **gen2** [execution environment](https://cloud.google.com/run/docs/about-execution-environments)
 
@@ -104,6 +105,7 @@ This approach assumes that Artifact Registry is available in `PROJECT_ID`.
      export GCS_BUCKET='...'        # the name of the Cloud Storage Bucket to mount
      export PCAP_FILTER='...'       # the BPF filter to use; i/e: `tcp port 443`
      export PCAP_ROTATE_SECS='...'  # how often to rocate PCAP files; default is `60` seconds 
+     export PCAP_SNAPSHOT_LENGTH='...'  # see: https://www.tcpdump.org/manpages/tcpdump.1.html#:~:text=%2D%2D-,snapshot%2Dlength,-%3Dsnaplen ; default is `0` bytes
      ```
 
 2. Deploy the Cloud Run service including the `tcpdump` sidecar:
@@ -120,7 +122,7 @@ This approach assumes that Artifact Registry is available in `PROJECT_ID`.
        --container=${TCPDUMP_SIDECAR_NAME}-1 \
        --image=${TCPDUMP_IMAGE_URI} \
        --cpu=1 --memory=1G \
-       --set-env-vars="GCS_BUCKET=${GCS_BUCKET},PCAP_FILTER=${PCAP_FILTER},PCAP_ROTATE_SECS=${PCAP_ROTATE_SECS}" \
+       --set-env-vars="GCS_BUCKET=${GCS_BUCKET},PCAP_FILTER=${PCAP_FILTER},PCAP_ROTATE_SECS=${PCAP_ROTATE_SECS},PCAP_SNAPSHOT_LENGTH=${PCAP_SNAPSHOT_LENGTH}" \
        --depends-on=${INGRESS_CONTAINER_NAME}-1
      ```
 
@@ -130,13 +132,13 @@ This approach assumes that Artifact Registry is available in `PROJECT_ID`.
 
 The `tcpdump` sidecar accespts the following environment variables:
 
--    `GCS_BUCKET`: (string, **required**) the name of the Cloud Storage Bucket to be mounted and used to store **PCAP files**.
--    `PCAP_FILTER`: (string **required**) standard `tcpdump` bpf filters to scope the packet capture to specific traffic; i/e: `tcp`.
--    `PCAP_FLAGS`: (string, *optional*) [flags](https://www.tcpdump.org/manpages/tcpdump.1.html) to be passed to `tcpdump`; default value is `-n -s 0`.
--    `PCAP_ROTATE_SECS`: (number, *optional*) how often to rotate **PCAP files** created by `tcpdump`; default value is `60` seconds.
--    `GCS_MOUNT`: (string, *optional*) where in the sidecar in-memory filesystem to mount the Cloud Storage Bucket; default value is `/pcap`.
--    `PCAP_FILE_EXT`: (string, *optional*) extension to be used for **PCAP files**; default value is `pcap`.
--    `PCAP_COMPRESS`: (boolean, *optional*) whether to compress **PCAP files** or not; default value is `true`.
+-    `GCS_BUCKET`: (STRING, **required**) the name of the Cloud Storage Bucket to be mounted and used to store **PCAP files**.
+-    `PCAP_FILTER`: (STRING, **required**) standard `tcpdump` bpf filters to scope the packet capture to specific traffic; i/e: `tcp`.
+-    `PCAP_SNAPSHOT_LENGTH`: (NUMBER, *optional*) bytes of data from each packet rather than the default of 262144 bytes; default value is `0`.
+-    `PCAP_ROTATE_SECS`: (NUMBER, *optional*) how often to rotate **PCAP files** created by `tcpdump`; default value is `60` seconds.
+-    `GCS_MOUNT`: (STRING, *optional*) where in the sidecar in-memory filesystem to mount the Cloud Storage Bucket; default value is `/pcap`.
+-    `PCAP_FILE_EXT`: (STRING, *optional*) extension to be used for **PCAP files**; default value is `pcap`.
+-    `PCAP_COMPRESS`: (BOOLEAN, *optional*) whether to compress **PCAP files** or not; default value is `true`.
 
 ## Considerations
 
@@ -153,6 +155,8 @@ The `tcpdump` sidecar accespts the following environment variables:
      -    The longer it takes to rotate the current **PCAP file**, the larger the current **PCAP file** will be, so...
          
      -    Larger **PCAP files** will require more memory to temporarily store the current one before offloading it into the Cloud Storage Bucket.
+
+-    When defining `PCAP_SNAPSHOT_LENGTH`, keep in mind that a large value will result in larget **PCAP files**; additionally, you may not need to ispect the data, just the packet headers.
 
 -    Keep in mind that every Cloud Run instance will produce its own set of **PCAP files**, so for troubleshooting purposes, it is best to define a low Cloud Run [maximum number of instances](https://cloud.google.com/run/docs/configuring/max-instances).
 

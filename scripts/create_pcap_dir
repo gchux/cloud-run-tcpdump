@@ -1,0 +1,12 @@
+#!/usr/bin/env bash
+
+while : ; do
+    gcsfuse_ready=$(mount | grep gcsfuse | grep ${GCS_BUCKET} | wc -l | tr -d '\n')
+    [[ "${gcsfuse_ready}" == '1' ]] && break
+    echo "[INFO] – GCS Bucket \'${GCS_BUCKET}\' not mounted at \'${PCAP_MNT}\'"
+    sleep 1
+done
+
+set -x
+
+exec env mkdir -p ${PCAP_DIR}

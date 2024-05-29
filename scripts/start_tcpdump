@@ -1,0 +1,12 @@
+#!/usr/bin/env bash
+
+while : ; do
+    pcapfsn_ready=$(ps -efa | grep '/pcap_fsn' | grep -v grep | wc -l  | tr -d '\n')
+    [[ "${pcapfsn_ready}" == '1' ]] && break
+    echo "[INFO] – PCAP FS notifier is not running"
+    sleep 1
+done
+
+set -x
+
+exec env tcpdump -n -s ${PCAP_SNAPLEN} -i any -w ${PCAP_FILE}_%Y%m%d_%H%M%S.${PCAP_EXT} -Z root -G ${PCAP_SECS} "${PCAP_FILTER}"

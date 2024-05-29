@@ -22,5 +22,8 @@ fi
 # build `pcap_fsn` and extract it into `CWD`/bin
 docker buildx build --file=$(pwd)/pcap-fsnotify/Dockerfile --no-cache --output "$(pwd)/bin" --target releaser $(pwd)/pcap-fsnotify
 
+# build `supervisord` and extract it into `CWD`/bin
+docker buildx build --file=$(pwd)/supervisord/Dockerfile --no-cache --output "$(pwd)/bin" --target releaser $(pwd)/supervisord
+
 # build `tcpdump` sidecar image
 docker buildx build --file=$(pwd)/Dockerfile --no-cache -t ${1} $(pwd)
