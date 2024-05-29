@@ -6,9 +6,11 @@ This repository contains the source code to create a container image containing 
 
 During development, it is often useful to perform packet capture to troubleshoot specific network related issues/conditions.
 
-This container image is to be used as a sidecar of the Cloud Run ingress container in order to perform a packet capture using `tcpdump` within the same network namespace.
+This container image is to be used as a sidecar of the Cloud Run main –*ingress*– container in order to perform a packet capture using `tcpdump` within the same network namespace.
 
 The sidecar approach enables decoupling from the main –*ingress*– container so that it does not require any modifications to perform a packet capture; additionally, sidecars use their own resources which allows `tcpdump` to not compete with the main app resources allocation.
+
+> NOTE: the main –*ingres*– container is the one to which all ingress traffic ( HTTP Requests ) are delivered to; for Cloud Run services, this is typically your APP container.
 
 ## Building blocks
 
