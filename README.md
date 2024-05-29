@@ -10,7 +10,7 @@ This container image is to be used as a sidecar of the Cloud Run main –*ingres
 
 The sidecar approach enables decoupling from the main –*ingress*– container so that it does not require any modifications to perform a packet capture; additionally, sidecars use their own resources which allows `tcpdump` to not compete with the main app resources allocation.
 
-> **NOTE**: the main –*ingres*– container is the one to which all ingress traffic ( HTTP Requests ) are delivered to; for Cloud Run services, this is typically your APP container.
+> **NOTE**: the main –*ingres*– container is the one to which all ingress traffic ( HTTP Requests ) is delivered to; for Cloud Run services, this is typically your APP container.
 
 ## Building blocks
 
