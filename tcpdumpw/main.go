@@ -70,14 +70,14 @@ func after_tcpdump(id uuid.UUID, name string) {
     j := *job.j
     nextRun, _ := j.NextRun()
     jlog(INFO, job, fmt.Sprintf("next execution: %v", nextRun))
-	}
+  }
   xid.Store(uuid.Nil) // reset execution id
 }
 
 func before_tcpdump(id uuid.UUID, name string) {
   if job, ok := jobs.Load(id); ok {
     jlog(INFO, job, "execution started")
-	}
+  }
   xid.Store(uuid.New())
 }
 
@@ -191,9 +191,9 @@ func main() {
     gocron.WithName("tcpdump"),
     gocron.WithSingletonMode(gocron.LimitModeReschedule),
     gocron.WithEventListeners(
-		  gocron.AfterJobRuns(after_tcpdump),
-		  gocron.BeforeJobRuns(before_tcpdump),
-	  ),
+      gocron.AfterJobRuns(after_tcpdump),
+      gocron.BeforeJobRuns(before_tcpdump),
+    ),
   )
   if err != nil {
     jlog(ERROR, &empty_tcpdump_job, fmt.Sprintf("failed to create scheduled job: %v", err))
