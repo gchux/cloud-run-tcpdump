@@ -2,25 +2,102 @@ package main
 
 import (
   "fmt"
-  "log"
   "time"
   "flag"
+  "strings"
   "os"
   "os/exec"
   "context"
+  "sync/atomic"
+  "encoding/json"
   _ "time/tzdata"
 
+  "github.com/lrita/cmap"
+  "github.com/google/uuid"
   "github.com/go-co-op/gocron/v2"
 )
 
+var sidecar string = os.Getenv("RUN_SIDECAR")
+var module  string = os.Getenv("PROC_NAME")
+
+var jid, xid atomic.Value
+
+type tcpdumpJob struct {
+  j    *gocron.Job `json:"-"`
+  Xid  string      `json:"xid,omitempty"`
+  Jid  string      `json:"jid,omitempty"`
+  Name string      `json:"name,omitempty"`
+  Tags []string    `json:"tags,omitempty"`
+}
+
+var jobs cmap.Map[uuid.UUID, *tcpdumpJob]
+
+type jLogLevel string
+const (
+  INFO  jLogLevel = "INFO"
+  ERROR jLogLevel = "ERROR"
+)
+
+type jLogEntry struct {
+  Severity jLogLevel  `json:"severity"`
+  Message  string     `json:"message"`
+  Sidecar  string     `json:"sidecar"`
+  Module   string     `json:"module"`
+  Job      tcpdumpJob `json:"job,omitempty"`
+}
+
+var empty_tcpdump_job = tcpdumpJob{Jid: uuid.Nil.String()}
+
+func jlog(severity jLogLevel, job *tcpdumpJob, message string) {
+
+  job.Xid = xid.Load().(uuid.UUID).String()
+
+  entry := &jLogEntry{ 
+    Severity: severity,
+    Message: message,
+    Sidecar: sidecar,
+    Module: module,
+    Job: *job,
+  }
+  
+  jEntry, _ := json.Marshal(entry)
+  fmt.Println(string(jEntry))
+}
+
+func after_tcpdump(id uuid.UUID, name string) {
+  if job, ok := jobs.Load(id); ok {
+    jlog(INFO, job, "execution complete")
+    j := *job.j
+    nextRun, _ := j.NextRun()
+    jlog(INFO, job, fmt.Sprintf("next execution: %v", nextRun))
+	}
+  xid.Store(uuid.Nil) // reset execution id
+}
+
+func before_tcpdump(id uuid.UUID, name string) {
+  if job, ok := jobs.Load(id); ok {
+    jlog(INFO, job, "execution started")
+	}
+  xid.Store(uuid.New())
+}
+
 func tcpdump(timeout time.Duration, snaplen, secs int, dir , ext , filter string) error {
 
+  job_id := jid.Load().(uuid.UUID)
+
+  var job *tcpdumpJob
+  var ok bool
+  if job, ok = jobs.Load(job_id); !ok {
+    message := fmt.Sprintf("job[id:%s] not found", job_id)
+    jlog(ERROR, &empty_tcpdump_job, message)
+    return fmt.Errorf(message)
+  }
+
   tcpdump_bin, err := exec.LookPath("tcpdump")
+  
   if err != nil {
-    log.Println("[ERROR] - [tcpdumpw] - 'tcpdump' is not available")
+    jlog(ERROR, job, "tcpdump is not available")
     return fmt.Errorf("tcpdump is not available")
-  } else {
-    log.Printf("[INFO] - [tcpdumpw] - using 'tcpdump' bin: '%s'\n", tcpdump_bin)
   }
 
   ctx := context.Background()
@@ -41,9 +118,10 @@ func tcpdump(timeout time.Duration, snaplen, secs int, dir , ext , filter string
   cmd.Stdout = os.Stdout
   cmd.Stderr = os.Stderr
 
-  log.Printf("[INFO] - [tcpdumpw] - EXEC: %v\n", cmd.Args)
+  cmd_line := strings.Join(cmd.Args[:], " ")
+  jlog(INFO, job, fmt.Sprintf("EXEC: %v", cmd_line))
   if err := cmd.Run(); err != nil {
-    log.Printf("[INFO] - [tcpdumpw] - stopped '%s' after %v\n", tcpdump_bin, timeout)
+    jlog(INFO, job, fmt.Sprintf("STOP: %v", cmd_line))
   }
 
   return nil
@@ -55,6 +133,7 @@ func main() {
   use_cron  := flag.Bool("use_cron",    false,  "perform packet capture at specific intervals")
   cron_exp  := flag.String("cron_exp",  "",     "stardard cron expression; i/e: '1 * * * *'")
   duration  := flag.Int("timeout",      0,      "perform packet capture during this mount of seconds")
+  rotate_s  := flag.Int("rotate_s",     60,     "seconds after which tcpdump rotates PCAP files")
   snaplen   := flag.Int("snaplen",      0,      "bytes to be captured from each packet")
   filter    := flag.String("filter",    "",     "BPF filter to be used for capturing packets")
   extension := flag.String("extension", "pcap", "extension to be used for PCAP files")
@@ -62,56 +141,77 @@ func main() {
 
   flag.Parse()
 
-  log.Printf("[INFO] - [tcpdumpw] -  args[use_cron]: %v\n", *use_cron);
-  log.Printf("[INFO] - [tcpdumpw] -  args[cron_exp]: %s\n", *cron_exp);
-  log.Printf("[INFO] - [tcpdumpw] -  args[timezone]: %s\n", *timezone);
-  log.Printf("[INFO] - [tcpdumpw] -   args[timeout]: %d\n", *duration);
-  log.Printf("[INFO] - [tcpdumpw] - args[extension]: %s\n", *extension);
-  log.Printf("[INFO] - [tcpdumpw] - args[directory]: %s\n", *directory);
-  log.Printf("[INFO] - [tcpdumpw] -   args[snaplen]: %d\n", *snaplen);
-  log.Printf("[INFO] - [tcpdumpw] -    args[filter]: %s\n", *filter);
+  jid.Store(uuid.Nil)
+  xid.Store(uuid.Nil)
+
+  jlog(INFO, &empty_tcpdump_job,
+    fmt.Sprintf("args[use_cron:%t|cron_exp:%s|timezone:%s|timeout:%d|extension:%s|directory:%s|snaplen:%d|filter:%s|rotate_s:%d]", 
+    *use_cron, *cron_exp, *timezone, *duration, *extension, *directory, *snaplen, *filter, *rotate_s))
 
   timeout := time.Duration(*duration) * time.Second
-  log.Printf("[INFO] - [tcpdumpw] - parsed timeout: %v\n", timeout)
+  jlog(INFO, &empty_tcpdump_job, fmt.Sprintf("parsed timeout: %v", timeout))
 
   // Skip scheduling, execute `tcpdump`
   if !*use_cron {
-    tcpdump(timeout, *snaplen, *duration, *directory, *extension, *filter)
+    tcpdump(timeout, *snaplen, *rotate_s, *directory, *extension, *filter)
     return
   }
 
   // The `timezone` to be used when scheduling `tcpdump` cron jobs
   location, err := time.LoadLocation(*timezone)
   if err != nil {
-    log.Printf("[ERROR] - [tcpdumpw] – could not load timezone '%s': %v\n", *timezone, err)
+    jlog(ERROR, &empty_tcpdump_job, fmt.Sprintf("could not load timezone '%s': %v", *timezone, err))
   }
-  log.Printf("[INFO] - [tcpdumpw] - parsed timezone: %v\n", location)
+  jlog(INFO, &empty_tcpdump_job, fmt.Sprintf("parsed timezone: %v", location))
 
   // Create a scheduler using the requested timezone.
   // no more than 1 packet capturing job should ever be executed.
   s, err := gocron.NewScheduler(
     gocron.WithLimitConcurrentJobs(1, gocron.LimitModeReschedule),
     gocron.WithLocation(location),
+    gocron.WithGlobalJobOptions(
+      gocron.WithTags(
+        os.Getenv("PROJECT_ID"),
+        os.Getenv("RUN_SERVICE"),
+        os.Getenv("GCP_REGION"),
+        os.Getenv("RUN_REVISION"),
+        os.Getenv("INSTANCE_ID"),
+      ),
+    ),
   )
   if err != nil {
-    log.Printf("[ERROR] - [tcpdumpw] - failed to create scheduler: %v\n", err)
+    jlog(ERROR, &empty_tcpdump_job, fmt.Sprintf("failed to create scheduler: %v", err))
     return
   }
 
   // Use the provided `cron` expression ro schedule the packet capturing job
   j, err := s.NewJob(
     gocron.CronJob(*cron_exp, true),
-    gocron.NewTask(tcpdump, timeout, *snaplen, *duration, *directory, *extension, *filter),
+    gocron.NewTask(tcpdump, timeout, *snaplen, *rotate_s, *directory, *extension, *filter),
+    gocron.WithName("tcpdump"),
+    gocron.WithSingletonMode(gocron.LimitModeReschedule),
+    gocron.WithEventListeners(
+		  gocron.AfterJobRuns(after_tcpdump),
+		  gocron.BeforeJobRuns(before_tcpdump),
+	  ),
   )
   if err != nil {
-    log.Printf("[ERROR] - [tcpdumpw] - failed to schedule packet capturing job: %v\n", err)
+    jlog(ERROR, &empty_tcpdump_job, fmt.Sprintf("failed to create scheduled job: %v", err))
     return
   }
 
-  log.Printf("[INFO] - [tcpdumpw] - scheduled tcpdump job_id: %s\n", j.ID())
+  jid.Store(j.ID())
+
+  job := &tcpdumpJob{Jid: j.ID().String(), Name: j.Name(), Tags: j.Tags(), j: &j}
+  jobs.Store(j.ID(), job)
+  jlog(INFO, job, "scheduled job")
 
   // Start the packet capturing scheduler
   s.Start()
+  
+  nextRun, _ := j.NextRun()
+  jlog(INFO, job, fmt.Sprintf("next execution: %v", nextRun))
 
-  select{}
+  // Block main goroutine forever.
+  <-make(chan struct{})
 }

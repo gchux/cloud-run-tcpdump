@@ -6,12 +6,8 @@ RUN apt-get -y -qq update > /dev/null && apt-get install -qq -y tzdata curl fuse
 RUN curl -o /gcsfuse.deb -L \
     https://github.com/GoogleCloudPlatform/gcsfuse/releases/download/v${GCSFUSE_VERSION}/gcsfuse_${GCSFUSE_VERSION}_amd64.deb \
     && dpkg -i --force-all /gcsfuse.deb && rm -vf /gcsfuse.deb
-COPY ./bin/supervisord /bin/supervisord
-COPY ./bin/tcpdumpw /bin/tcpdumpw
-COPY ./bin/pcap_fsn /bin/pcap_fsn
-COPY ./scripts/create_pcap_dir /scripts/create_pcap_dir
-COPY ./scripts/start_pcapfsn /scripts/start_pcapfsn
-COPY ./scripts/start_tcpdump /scripts/start_tcpdump
+COPY ./bin /bin
+COPY ./scripts /scripts
 COPY ./tcpdump.conf /tcpdump.conf
 COPY ./scripts/init /init
 ENTRYPOINT ["/init"]

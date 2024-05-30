@@ -16,4 +16,6 @@ exec env /bin/tcpdumpw \
     -timeout=${PCAP_TO:-0} \
     -extension=${PCAP_EXT:-pcap} \
     -directory=${PCAP_TMP:-/pcap-tmp} \
-    -filter="${PCAP_FILTER}"
+    -snaplen=${PCAP_SNAPLEN:-0} \
+    -filter="${PCAP_FILTER}" \
+    -rotate_s=${PCAP_SECS}
