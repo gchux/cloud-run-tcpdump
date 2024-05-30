@@ -83,7 +83,7 @@ func main() {
   // The `timezone` to be used when scheduling `tcpdump` cron jobs
   location, err := time.LoadLocation(*timezone)
   if err != nil {
-    log.Printf("[ERROR] – could not load timezone '%s': %v\n", *timezone, err)
+    log.Printf("[ERROR] - [tcpdumpw] – could not load timezone '%s': %v\n", *timezone, err)
   }
   log.Printf("[INFO] - [tcpdumpw] - parsed timezone: %v\n", location)
 
@@ -94,7 +94,7 @@ func main() {
     gocron.WithLocation(location),
   )
   if err != nil {
-    log.Printf("[ERROR] - failed to create scheduler: %v\n", err)
+    log.Printf("[ERROR] - [tcpdumpw] - failed to create scheduler: %v\n", err)
     return
   }
 
