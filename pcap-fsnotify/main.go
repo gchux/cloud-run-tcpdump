@@ -24,8 +24,7 @@ func movePcapToGcs(pcap *int64, src_pcap *string, dst_dir *string, compress *boo
     }
 
     var err error
-    var input_pcap  *os.File
-    var output_pcap *os.File
+    var input_pcap, output_pcap *os.File
 
     // Open source PCAP file: the one thas is being moved to the destination directory
     input_pcap, err = os.Open(*src_pcap)
@@ -34,7 +33,7 @@ func movePcapToGcs(pcap *int64, src_pcap *string, dst_dir *string, compress *boo
         return fmt.Errorf("failed to open source pcap: %s", *src_pcap)
     }
 
-    // Create destination PCAP file
+    // Create destination PCAP file ( export to the GCS Bucket )
     output_pcap, err = os.Create(dest_pcap)
     if err != nil {
         log.Println(err)
@@ -61,26 +60,26 @@ func movePcapToGcs(pcap *int64, src_pcap *string, dst_dir *string, compress *boo
     // remove the source PCAP file if copying is sucessful
     os.Remove(*src_pcap)
     
-    log.Printf("[INFO] - last pcap [bytes:%d]: %s", pcap_bytes, dest_pcap)
+    log.Printf("[INFO] - [pcap_fsn] - exported pcap [%dB]: '%s' > '%s'\n", pcap_bytes, *src_pcap, dest_pcap)
 
     return nil
 }
 
 func main() {
 
-    src_dir    := flag.String("src", "/pcap-tmp", "pcaps source directory")
-    dst_dir    := flag.String("dst", "/pcap",     "pcaps destination directory")
-    pcap_ext   := flag.String("ext", "pcap",      "pcap files extension")
-    gzip_pcaps := flag.Bool("gzip",  false,       "compress pcap files")
+    src_dir    := flag.String("src_dir",  "/pcap-tmp", "pcaps source directory")
+    gcs_dir    := flag.String("gcs_dir",  "/pcap",     "pcaps destination directory")
+    pcap_ext   := flag.String("pcap_ext", "pcap",      "pcap files extension")
+    gzip_pcaps := flag.Bool("gzip",       false,       "compress pcap files")
 
     flag.Parse()
 
     pcap_dot_ext := fmt.Sprintf(".%s", *pcap_ext)
 
-    log.Println("[INFO] - PCAPs source directory: ",      *src_dir)
-    log.Println("[INFO] - PCAPs destination directory: ", *dst_dir)
-    log.Println("[INFO] - PCAPs expected extension: ",    pcap_dot_ext)
-    log.Println("[INFO] - Compress PCAP files: ",         *gzip_pcaps)
+    log.Printf("[INFO] - [pcap_fsn] -  args[src_dir]: %s\n", *src_dir)
+    log.Printf("[INFO] - [pcap_fsn] -  args[gcs_dir]: %s\n", *gcs_dir)
+    log.Printf("[INFO] - [pcap_fsn] - args[pcap_ext]: %s\n", pcap_dot_ext)
+    log.Printf("[INFO] - [pcap_fsn] -     args[gzip]: %t\n", *gzip_pcaps)
 
     // Create new watcher.
     watcher, err := fsnotify.NewWatcher()
@@ -94,7 +93,10 @@ func main() {
 
         var iteration int64 = 0;
         last_pcap := "";
-
+        
+        // [ToDo]: implement fast-pcap-export
+        // using a short timeout for `tcpdumnp` and long periods between executions may cause orphaned PCAPs;
+        // implement a validation to confirm that `tcpdump` is not running while PCAP files are available.
         for {
             select {
                 case event, ok := <-watcher.Events:
@@ -105,18 +107,23 @@ func main() {
                     if !(event.Has(fsnotify.Create) && strings.HasSuffix(event.Name, pcap_dot_ext)) {
                         break
                     }
-                    log.Println("[INFO] - new pcap: ", event.Name)
+                    log.Println("[INFO] - [pcap_fsn] - new pcap: ", event.Name)
                     // Skip 1st PCAP, start moving PCAPs as soon as TCPDUMP rolls over into the 2nd file.
                     // The outcome of this implementation is that the directory in which TCPDUMP writes
                     // PCAP files will contain at most 2 files, the current one, and the one being moved
-                    // into the destination directory ( `dst_dir` ). Otherwise it will contain all PCAPs.
+                    // into the destination directory ( `gcs_dir` ). Otherwise it will contain all PCAPs.
                     if iteration == 0 {
                         last_pcap = event.Name
                         iteration += 1
                         break
                     }
-                    // move non-current PCAP file into `dst_dir`
-                    movePcapToGcs(&iteration, &last_pcap, dst_dir, gzip_pcaps);
+                    // move non-current PCAP file into `gcs_dir` which means that:
+                    // 1. the GCS Bucket should have already been mounted
+                    // 2. the directory hierarchy to store PCAP files already exists
+                    err = movePcapToGcs(&iteration, &last_pcap, gcs_dir, gzip_pcaps);
+                    if err != nil {
+                        log.Printf("[ERROR] - [pcap_fsn] - failed to move PCAP into GCS: %v\n", err)
+                    }
                     // current PCAP file is the next one to be moved
                     last_pcap = event.Name
                     iteration += 1
@@ -124,7 +131,7 @@ func main() {
                     if !ok {
                         return
                     }
-                    log.Println("error:", err)
+                    log.Printf("[ERROR] - [pcap_fsn] - %v\n", err)
             }
         }
     }()

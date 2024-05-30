@@ -14,7 +14,7 @@ GCP_REGION=${_GCP_REGION##*/}
 
 PCAP_EXT="${PCAP_FILE_EXT:-pcap}"
 PCAP_GZIP="${PCAP_COMPRESS:-true}" # compressing is strongly recommended
-PCAP_DATE="$(date +'%Y/%m/%d/%H%M' | tr -d '\n')"
+PCAP_DATE="$(date +'%Y/%m/%d/%H-%M' | tr -d '\n')"
 PCAP_MNT="${GCS_MOUNT:-/pcap}"
 PCAP_TMP="${GCS_MOUNT:-/pcap}-tmp"
 PCAP_FILE="${PCAP_TMP}/part"
@@ -42,6 +42,10 @@ echo "GCS_BUCKET=${GCS_BUCKET}" >> ${GCS_BUCKET}
 echo "PCAP_FILTER=${PCAP_FILTER}" >> ${ENV_FILE}
 echo "PCAP_SECS=${PCAP_SECS}" >> ${ENV_FILE}
 echo "PCAP_SNAPLEN=${PCAP_SNAPLEN}" >> ${ENV_FILE}
+echo "PCAP_USE_CRON=${PCAP_USE_CRON:-false}" >> ${ENV_FILE}
+echo "PCAP_CRON_EXP=${PCAP_CRON_EXP:--}" >> ${ENV_FILE}
+echo "PCAP_TZ=${PCAP_TIMEZONE:-UTC}" >> ${ENV_FILE}
+echo "PCAP_TO=${PCAP_TIMEOUT_SECS:-0}" >> ${ENV_FILE}
 
 # Create both paths to store PCAP files
 mkdir -p ${PCAP_MNT}

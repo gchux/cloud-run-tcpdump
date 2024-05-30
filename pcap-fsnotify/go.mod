@@ -1,4 +1,4 @@
-module git.chux.dev/pcap_fsnotify
+module github.com/gchux/cloud-run-tcpdump/pcap-fsnotify
 
 go 1.20
 

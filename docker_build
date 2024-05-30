@@ -19,6 +19,9 @@ else
   mkdir -p ${BIN_DIR}
 fi
 
+# build `tcpdump` wrapper and extract it into `CWD`/bin
+docker buildx build --file=$(pwd)/tcpdumpw/Dockerfile --no-cache --output "$(pwd)/bin" --target releaser $(pwd)/tcpdumpw
+
 # build `pcap_fsn` and extract it into `CWD`/bin
 docker buildx build --file=$(pwd)/pcap-fsnotify/Dockerfile --no-cache --output "$(pwd)/bin" --target releaser $(pwd)/pcap-fsnotify
 

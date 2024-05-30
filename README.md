@@ -15,18 +15,21 @@ The sidecar approach enables decoupling from the main –*ingress*– container 
 ## Building blocks
 
 - [Ubuntu 22.04 official docker image](https://hub.docker.com/_/ubuntu)
-- [`tcpdump`](https://www.tcpdump.org/) installed from [Ubuntu's official repository](https://packages.ubuntu.com/search?keywords=tcpdump)
-- [GCSFuse](https://github.com/GoogleCloudPlatform/gcsfuse)
-- [fsnotify](https://github.com/fsnotify/fsnotify)
+- [`tcpdump`](https://www.tcpdump.org/) installed from [Ubuntu's official repository](https://packages.ubuntu.com/search?keywords=tcpdump) to perform packet captures.
+- [GCSFuse](https://github.com/GoogleCloudPlatform/gcsfuse) to mount the GCS Bucket used to export **PCAP files**.
 - [Go Supervisord](https://github.com/ochinchina/supervisord) to orchestrate startup processes execution.
-- [Docker Engine](https://docs.docker.com/engine/) and [Docker CLI](https://docs.docker.com/engine/reference/commandline/cli/) to build the sidecar container image
-- [Cloud Run](https://cloud.google.com/run/docs/deploying#multicontainer-yaml) **gen2** [execution environment](https://cloud.google.com/run/docs/about-execution-environments)
+- [fsnotify](https://github.com/fsnotify/fsnotify) to listen for filesystem events.
+- [gocron](https://github.com/go-co-op/gocron) to schedule execution of `tcpdump`.
+- [Docker Engine](https://docs.docker.com/engine/) and [Docker CLI](https://docs.docker.com/engine/reference/commandline/cli/) to build the sidecar container image.
+- [Cloud Run](https://cloud.google.com/run/docs/deploying#multicontainer-yaml) **gen2** [execution environment](https://cloud.google.com/run/docs/about-execution-environments).
 
 ## How it works
 
 The sidecar uses:
 
 -    **`tcpdump`** to capture packets. All containers use the same network namestap and so this sidecar captures packets from all containers within the same deployment.
+
+-    [**`tcpdumpw`**](tcpdumpw/main.go) to execute `tcpdump` and generate **PCAP files**; optionally, schedule recurring `tcpdump` executions.
 
 -    [**`pcap-fsnotify`**](pcap-fsnotify/main.go) to listen for newly created **PCAP files**, optionally compress PCAPs ( _**recommended**_ ) and move them into Cloud Storate mount point.
 
@@ -135,12 +138,34 @@ This approach assumes that Artifact Registry is available in `PROJECT_ID`.
 The `tcpdump` sidecar accespts the following environment variables:
 
 -    `GCS_BUCKET`: (STRING, **required**) the name of the Cloud Storage Bucket to be mounted and used to store **PCAP files**.
+
 -    `PCAP_FILTER`: (STRING, **required**) standard `tcpdump` bpf filters to scope the packet capture to specific traffic; i/e: `tcp`.
+
 -    `PCAP_SNAPSHOT_LENGTH`: (NUMBER, *optional*) bytes of data from each packet rather than the default of 262144 bytes; default value is `0`.
+
 -    `PCAP_ROTATE_SECS`: (NUMBER, *optional*) how often to rotate **PCAP files** created by `tcpdump`; default value is `60` seconds.
+
 -    `GCS_MOUNT`: (STRING, *optional*) where in the sidecar in-memory filesystem to mount the Cloud Storage Bucket; default value is `/pcap`.
+
 -    `PCAP_FILE_EXT`: (STRING, *optional*) extension to be used for **PCAP files**; default value is `pcap`.
+
 -    `PCAP_COMPRESS`: (BOOLEAN, *optional*) whether to compress **PCAP files** or not; default value is `true`.
+
+### Advanced configurations
+
+More advanced use cases may benefit from scheduling `tcpdump` executions. Use the following environment variables to configure scheduling:
+
+-    `PCAP_USE_CRON`: (BOOLEAN, *optional*) whether to enable scheduling of `tcpdump` executions; default value is `false`.
+
+-    `PCAP_CRON_EXP`: (STRING, *optional*) [`cron` expression](https://man7.org/linux/man-pages/man5/crontab.5.html) used to configure scheduling `tcpdump` executions. 
+     
+     - **NOTE**: if `PCAP_USE_CRON` is set to `true`, then `PCAP_CRON_EXP` is required. See https://crontab.cronhub.io/ to get help with `crontab` expressions.
+
+-    `PCAP_TIMEZONE`: (STRING, *optional*) the Timezone ID used to configure scheduling of `tcpdump` executions using `PCAP_CRON_EXP`; default value is `UTC`.
+
+-    `PCAP_TIMEOUT_SECS`: (NUMBER, *optional*) seconds `tcpdump` execution will last; devault value is `0`: execution will not be stopped.
+
+     - **NOTE**: if `PCAP_USE_CRON` is set to `true`, you should set this value to less than the time in seconds between scheduled executions.
 
 ## Considerations
 
