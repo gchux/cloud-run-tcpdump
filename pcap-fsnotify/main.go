@@ -60,8 +60,7 @@ type fsnEvent struct {
 }
 
 func logFsEvent(level zapcore.Level, message string, event pcapEvent, src, tgt string, by int64) {
-  sugar.Logw(zapcore.InfoLevel, message,
-    "sidecar", sidecar, "module", module, "tags", tags,
+  sugar.Logw(level, message, "sidecar", sidecar, "module", module, "tags", tags,
     "data", fsnEvent{Event: event, Source: src, Target: tgt, Bytes: by})
 }
 
