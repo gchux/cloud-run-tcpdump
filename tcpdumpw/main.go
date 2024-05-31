@@ -44,20 +44,23 @@ type jLogEntry struct {
   Sidecar  string     `json:"sidecar"`
   Module   string     `json:"module"`
   Job      tcpdumpJob `json:"job,omitempty"`
+  Tags     []string   `json:"tags,omitempty"` 
 }
 
 var empty_tcpdump_job = tcpdumpJob{Jid: uuid.Nil.String()}
 
 func jlog(severity jLogLevel, job *tcpdumpJob, message string) {
 
-  job.Xid = xid.Load().(uuid.UUID).String()
+  j := *job
+  j.Xid = xid.Load().(uuid.UUID).String()
 
   entry := &jLogEntry{ 
     Severity: severity,
     Message: message,
     Sidecar: sidecar,
     Module: module,
-    Job: *job,
+    Job: j,
+    Tags: j.Tags,
   }
   
   jEntry, _ := json.Marshal(entry)

@@ -1,4 +1,4 @@
-module github.com/gchux/cloud-run-tcpdump/tcpdump
+module github.com/gchux/cloud-run-tcpdump/tcpdumpw
 
 go 1.20
 
