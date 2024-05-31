@@ -2,7 +2,7 @@
 
 while : ; do
     [[ -d ${PCAP_DIR} ]] && break
-    echo "[INFO] – PCAP files dir \'${PCAP_DIR}\' is not available"
+    echo "{\"severity\":\"WARNING\",\"message\":\"PCAP files directory is not available: ${PCAP_DIR}\",\"sidecar\":\"${RUN_SIDECAR}\",\"module\":\"${PROC_NAME}\"}"
     sleep 1
 done
 

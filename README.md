@@ -20,6 +20,7 @@ The sidecar approach enables decoupling from the main –*ingress*– container 
 - [Go Supervisord](https://github.com/ochinchina/supervisord) to orchestrate startup processes execution.
 - [fsnotify](https://github.com/fsnotify/fsnotify) to listen for filesystem events.
 - [gocron](https://github.com/go-co-op/gocron) to schedule execution of `tcpdump`.
+- Uber's [zap](https://github.com/uber-go/zap) blazing fast, structured, leveled logging for Go.
 - [Docker Engine](https://docs.docker.com/engine/) and [Docker CLI](https://docs.docker.com/engine/reference/commandline/cli/) to build the sidecar container image.
 - [Cloud Run](https://cloud.google.com/run/docs/deploying#multicontainer-yaml) **gen2** [execution environment](https://cloud.google.com/run/docs/about-execution-environments).
 
@@ -171,6 +172,8 @@ More advanced use cases may benefit from scheduling `tcpdump` executions. Use th
 
 -    The Cloud Storage Bucket mounted by the `tcpdump` sidecar is not accessible by the main –ingress– container.
 
+-    Processes running in the `tcpdump` sidecar are not visible to the main –*ingress*– container ( or any other container ); similarly, the `tcpdump` sidecar doesn't have visibility of processes running in other containers.
+
 -    Packet capturing using `tcpdump` requires raw sockets, which is only available for Cloud Run **gen2** execution environment as it offers [full Linux compatibility](https://cloud.google.com/run/docs/about-execution-environments#:~:text=second%20generation%20execution%20environment%20provides%20full%20Linux%20compatibility).
 
 -    All **PCAP files** will be stored within the Cloud Storage Bucket with the following "*hierarchy*": `PROJECT_ID`/`SERVICE_NAME`/`GCP_REGION`/`REVISION_NAME`/`INSTANCE_STARTUP_TIMESTAMP`/`INSTANCE_ID`.
@@ -194,6 +197,18 @@ More advanced use cases may benefit from scheduling `tcpdump` executions. Use th
 -    The full packet capture from a Cloud Run instance will be composed out of multiple smaller ( optionally compressed ) **PCAP files**. Use a tool like [mergecap](https://www.wireshark.org/docs/man-pages/mergecap.html) to combine them into one.
 
 -    In order to be able to mount the Cloud Storage Bucket and store **PCAP files**, [Cloud Run's identity](https://cloud.google.com/run/docs/securing/service-identity) must have proper [roles/permissions](https://cloud.google.com/storage/docs/access-control/iam-permissions).
+
+-    The `tcpdump` sidecar is intended to be used for troubleshooting purposes only. While the `tcpdump` sidecar has its own set of resources, storing bytes from **PCAP files** in Cloud Storage introduces additional costs ( for both Storage and Networking ).
+
+     -    Set `PCAP_COMPRESS` to `true` to store compressed **PCAP files** and save storage bytes; additionally, use regional Buckets to minize costs.
+
+     -    Whenever possible, use packet capturing scheduling to avoid running `tcpdump` 100% of instance lifetime.
+
+     -    When troubleshooting is complete, deploy a new Revision without the `tcpdump` sidecar to completely disable it.
+
+-    While it is true that [Cloud Storage volume mounts](https://cloud.google.com/run/docs/configuring/services/cloud-storage-volume-mounts) is available in prevew, GCSFuse is used instead to minimize the required configuration to deploy a Revision instrumented with the `tcpdump` sidecar.
+
+     >    **NOTE***: this is also the reason why the base image for the `tcpdump` sidecar is `ubuntu:22.04` and not something lighter like `alpine`. GCSFuse pre-built packages are only available for Debian and RPM based distributions.
 
 ## Download and Merge all PCAP Files
 
