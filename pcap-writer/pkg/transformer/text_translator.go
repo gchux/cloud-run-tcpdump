@@ -8,9 +8,7 @@ import (
   "github.com/google/gopacket/layers"
 )
 
-type TextPcapTranslator struct {
-  text *strings.Builder
-}
+type TextPcapTranslator struct {}
 
 func (t *TextPcapTranslator) next() fmt.Stringer {
   return new(strings.Builder)
@@ -73,5 +71,5 @@ func (t *TextPcapTranslator) translateEthernetLayer(packet *layers.Ethernet, buf
 }
 
 func newTextPcapTranslator() *TextPcapTranslator {
-  return &TextPcapTranslator{text: new(strings.Builder)}
+  return &TextPcapTranslator{}
 }

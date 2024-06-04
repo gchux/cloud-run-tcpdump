@@ -26,5 +26,5 @@ func (t *JsonPcapTranslator) translateEthernetLayer(packet *layers.Ethernet, buf
 }
 
 func newJsonPcapTranslator() *JsonPcapTranslator {
-  return nil
+  return &JsonPcapTranslator{}
 }
