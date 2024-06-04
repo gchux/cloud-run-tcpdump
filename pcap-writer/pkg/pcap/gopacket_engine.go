@@ -17,8 +17,9 @@ func (p *Pcap) IsActive() bool {
   return p.isActive.Load()
 }
 
-func (p *Pcap) Start() error {
+func (p *Pcap) Start(ctx context.Context) error {
 
+  // atomically activate the packet capture
   if !p.isActive.CompareAndSwap(false, true) {
     return fmt.Errorf("already started")
   }
@@ -33,38 +34,39 @@ func (p *Pcap) Start() error {
     p.isActive.Store(false)
     return fmt.Errorf("failed to activate: %s", err)
   }
+  p.activeHandle = handle
   defer handle.Close()
 
-  p.activeHandle = handle
+  cfg := *p.config
 
-  config := *p.config
-
-  var filter string = config.Filter
+  // set packet capture filter; i/e: `tcp port 443`
+  var filter string = cfg.Filter
   if filter != "" {
     if err = handle.SetBPFFilter(filter); err != nil {
       return fmt.Errorf("BPF filter error: %s", err)
     }
   }
 
-  var format string = config.Format
+  // if format is `default` output is similar to `tcpdump`
+  var format string = cfg.Format
   if format == "default" {
     dumpcommand.Run(handle) // `gopacket` default implementation
     return nil
   }
 
   source := gopacket.NewPacketSource(handle, handle.LinkType())
-  
   source.Lazy = false
   source.NoCopy = true
   source.DecodeStreamsAsDatagrams = true
 
-  ctx := context.Background()
-  fn, err := transformer.NewTransformer(ctx, &format)
+  // create new transformer for the specified output format
+  fn, err := transformer.NewTransformer(ctx, &cfg.Output, &format)
   if err != nil {
     return fmt.Errorf("invalid format: %s", err)
   }
   p.fn = fn
 
+  // `fn.Apply` is non-blocking
   for packet := range source.Packets() {
     fn.Apply(&packet)
     // use `packet.Data()` to write bytes to a PCAP file

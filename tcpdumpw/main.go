@@ -27,7 +27,7 @@ type tcpdumpJob struct {
   Xid  string      `json:"xid,omitempty"`
   Jid  string      `json:"jid,omitempty"`
   Name string      `json:"name,omitempty"`
-  Tags []string    `json:"tags,omitempty"`
+  Tags []string    `json:"-"`
 }
 
 var jobs cmap.Map[uuid.UUID, *tcpdumpJob]
