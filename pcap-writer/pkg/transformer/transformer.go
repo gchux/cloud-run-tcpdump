@@ -1,48 +1,69 @@
 package transformer
 
 import (
-  "io"
   "os"
   "fmt"
+  "context"
 
   "github.com/google/gopacket"
   "github.com/google/gopacket/layers"
+  concurrently "github.com/tejzpr/ordered-concurrently/v3"
 )
 
 type PcapTranslator interface{
   translate(packet *gopacket.Packet) error
-  next(stream io.Writer)
-  translateEthernetLayer(packet *layers.Ethernet)
+  next() fmt.Stringer 
+  translateEthernetLayer(packet *layers.Ethernet, buffer fmt.Stringer)
 }
 
 type PcapTransformer struct{
   translator PcapTranslator
-  output string
+  output     string
+  ctx        context.Context
+  ich        chan concurrently.WorkFunction
 }
 
 type IPcapTransformer interface{
   Apply(packet *gopacket.Packet) error
 }
 
-func (t *PcapTransformer) Apply(packet *gopacket.Packet) error {
-  
-  translator := t.translator
-  translator.next(os.Stdout)
+// Create a type based on your input to the work function
+type pcapWorker struct {
+  p *gopacket.Packet
+  t PcapTranslator
+}
 
-  p := *packet
-  
-  ethernetLayer := p.Layer(layers.LayerTypeEthernet)
+// The work that needs to be performed
+// The input type should implement the WorkFunction interface
+func (p pcapWorker) Run(ctx context.Context) interface{} {
+
+  T := p.t
+  P := *p.p
+ 
+  buffer := T.next()
+
+  ethernetLayer := P.Layer(layers.LayerTypeEthernet)
   if ethernetLayer != nil {
     ethernetPacket, _ := ethernetLayer.(*layers.Ethernet)
-    translator.translateEthernetLayer(ethernetPacket)
+    T.translateEthernetLayer(ethernetPacket, buffer)
   }
+	
+	return buffer.String()
+}
+
+func (t *PcapTransformer) Apply(packet *gopacket.Packet) error {
+  
+  // process packets concurrently
+  go func(P *gopacket.Packet, T PcapTranslator) {
+    t.ich <- &pcapWorker{p: P, t: T}
+  }(packet, t.translator)
 
   // translate more layers
 
   return nil
 }
 
-func NewTransformer(format *string) (IPcapTransformer, error) {
+func NewTransformer(ctx context.Context, format *string) (IPcapTransformer, error) {
 
   var translator PcapTranslator = newTranslator(format)
 
@@ -50,8 +71,18 @@ func NewTransformer(format *string) (IPcapTransformer, error) {
     return nil, fmt.Errorf("not available: %s", *format)
   }
 
+  ich := make(chan concurrently.WorkFunction, 10)
+  och := concurrently.Process(ctx, ich, &concurrently.Options{PoolSize: 10, OutChannelBuffer: 10})
+
+  go func(och <-chan concurrently.OrderedOutput) {
+    for out := range och {
+		  // ToDo: output file must be dynamically configured
+		  fmt.Fprintf(os.Stdout, "%s\n", out.Value)
+	  }
+  }(och)
+
   // same transformer, multiple strategies
-  return &PcapTransformer{translator: translator}, nil
+  return &PcapTransformer{translator: translator, ctx: ctx, ich: ich}, nil
 }
 
 func newTranslator(format *string) PcapTranslator {

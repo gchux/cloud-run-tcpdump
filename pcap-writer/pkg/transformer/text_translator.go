@@ -1,7 +1,6 @@
 package transformer
 
 import (
-  "io"
   "fmt"
   "strings"
 
@@ -13,12 +12,8 @@ type TextPcapTranslator struct {
   text *strings.Builder
 }
 
-func (t *TextPcapTranslator) next(stream io.Writer) {
-  text := t.text
-  if text.Len() > 0 {
-    fmt.Println(text.String())
-  }
-  text.Reset()
+func (t *TextPcapTranslator) next() fmt.Stringer {
+  return new(strings.Builder)
 }
 
 func (t *TextPcapTranslator) translate(packet *gopacket.Packet) error {
@@ -66,14 +61,15 @@ func (t *TextPcapTranslator) translate(packet *gopacket.Packet) error {
   return nil
 } 
 
-func (t *TextPcapTranslator) translateEthernetLayer(packet *layers.Ethernet) {
-  t.text.WriteString("[L2(")
-  t.text.WriteString(packet.EthernetType.String())
-  t.text.WriteString(") | ")
-  t.text.WriteString(packet.SrcMAC.String())
-  t.text.WriteString(" > ")
-  t.text.WriteString(packet.DstMAC.String())
-  t.text.WriteString("]")
+func (t *TextPcapTranslator) translateEthernetLayer(packet *layers.Ethernet, buffer fmt.Stringer) {
+  text := buffer.(*strings.Builder)
+  text.WriteString("[L2(")
+  text.WriteString(packet.EthernetType.String())
+  text.WriteString(") | ")
+  text.WriteString(fmt.Sprintf("src=%s", packet.SrcMAC.String()))
+  text.WriteString(" > ")
+  text.WriteString(fmt.Sprintf("src=%s", packet.DstMAC.String()))
+  text.WriteString("]")
 }
 
 func newTextPcapTranslator() *TextPcapTranslator {

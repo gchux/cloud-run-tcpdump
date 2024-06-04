@@ -4,6 +4,7 @@ import (
   "fmt"
   "log"
   "time"
+  "context"
   "sync/atomic"
 
   "github.com/google/gopacket"
@@ -57,7 +58,8 @@ func (p *Pcap) Start() error {
   source.NoCopy = true
   source.DecodeStreamsAsDatagrams = true
 
-  fn, err := transformer.NewTransformer(&format)
+  ctx := context.Background()
+  fn, err := transformer.NewTransformer(ctx, &format)
   if err != nil {
     return fmt.Errorf("invalid format: %s", err)
   }
