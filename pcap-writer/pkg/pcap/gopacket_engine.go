@@ -9,7 +9,7 @@ import (
   "github.com/google/gopacket"
   gpcap "github.com/google/gopacket/pcap"
   "github.com/google/gopacket/dumpcommand"
-  "github.com/gchux/cloud-run-tcpdump/pcap-json/pkg/transformer"
+  "github.com/gchux/cloud-run-tcpdump/pcap-writer/pkg/transformer"
 )
 
 func (p *Pcap) IsActive() bool {
@@ -51,18 +51,17 @@ func (p *Pcap) Start() error {
     return nil
   }
 
-  fn, err := transformer.NewTransformer(&format)
-  if err != nil {
-    return fmt.Errorf("invalid format: %s", err)
-  }
-
-  p.fn = fn
-
   source := gopacket.NewPacketSource(handle, handle.LinkType())
   
   source.Lazy = false
   source.NoCopy = true
   source.DecodeStreamsAsDatagrams = true
+
+  fn, err := transformer.NewTransformer(&format)
+  if err != nil {
+    return fmt.Errorf("invalid format: %s", err)
+  }
+  p.fn = fn
 
   for packet := range source.Packets() {
     fn.Apply(&packet)

@@ -4,7 +4,7 @@ import (
   "sync/atomic"
 
   gpcap "github.com/google/gopacket/pcap"
-  "github.com/gchux/cloud-run-tcpdump/pcap-json/pkg/transformer"
+  "github.com/gchux/cloud-run-tcpdump/pcap-writer/pkg/transformer"
 )
 
 type PcapConfig struct{

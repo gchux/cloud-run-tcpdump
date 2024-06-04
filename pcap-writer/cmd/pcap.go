@@ -4,7 +4,7 @@ import (
   "log"
   "flag" 
 
-  "github.com/gchux/cloud-run-tcpdump/pcap-json/pkg/pcap"
+  "github.com/gchux/cloud-run-tcpdump/pcap-writer/pkg/pcap"
 )
 
 var iface   = flag.String("i", "any", "Interface to read packets from")

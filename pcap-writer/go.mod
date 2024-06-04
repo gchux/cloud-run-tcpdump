@@ -1,4 +1,4 @@
-module github.com/gchux/cloud-run-tcpdump/pcap-json
+module github.com/gchux/cloud-run-tcpdump/pcap-writer
 
 go 1.20
 
