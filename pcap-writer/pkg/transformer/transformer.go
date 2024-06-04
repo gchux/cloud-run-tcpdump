@@ -55,8 +55,8 @@ func (p pcapWorker) Run(ctx context.Context) interface{} {
     ethernetPacket, _ := ethernetLayer.(*layers.Ethernet)
     T.translateEthernetLayer(ethernetPacket, buffer)
   }
-	
-	return buffer.String()
+  
+  return buffer.String()
 }
 
 func (t *PcapTransformer) Apply(packet *gopacket.Packet) error {
@@ -107,19 +107,21 @@ func NewTransformer(ctx context.Context, output, format *string) (IPcapTransform
       w = bufio.NewWriter(stream.targetFile)
     }
     for out := range och {
-		  // [ToDo]:  @gchux
-		  // 1. enable PCAP file rotation after x amout of secs
-		  // 2. stream should be a provider, not a concrete type
-		  //    2.1 provder should only return new files for non std[out|err]
-		  fmt.Fprintf(w, "%s\n", out.Value)
-	  }
-	  // pcapStreamProvider should flush and close on `rotate()`
-	  if stream.buffered {
-	    w.(*bufio.Writer).Flush()
-	  }
-	  if stream.closeable {
-	    stream.targetFile.Close()
-	  }
+      // [ToDo]:  @gchux
+      // 1. enable PCAP file rotation after x amout of secs
+      // 2. stream should be a provider, not a concrete type
+      //    2.1 provider should only return new files for non std[out|err]
+      //    2.2 provider should be passed as an `interface` instead of a `string`
+      //        2.2.1 `PcapTransformer` must not be responsible for files rotation
+      fmt.Fprintf(w, "%s\n", out.Value)
+    }
+    // pcapStreamProvider should flush and close on `rotate()`
+    if stream.buffered {
+      w.(*bufio.Writer).Flush()
+    }
+    if stream.closeable {
+      stream.targetFile.Close()
+    }
   }(och, stream)
 
   // same transformer, multiple strategies
