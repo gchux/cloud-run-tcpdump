@@ -65,7 +65,7 @@ func (p *Pcap) Start() error {
   source.DecodeStreamsAsDatagrams = true
 
   for packet := range source.Packets() {
-    fn.Apply(packet)
+    fn.Apply(&packet)
     // use `packet.Data()` to write bytes to a PCAP file
   }
 

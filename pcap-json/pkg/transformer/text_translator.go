@@ -1,25 +1,31 @@
 package transformer
 
 import (
+  "io"
   "fmt"
+  "strings"
 
   "github.com/google/gopacket"
   "github.com/google/gopacket/layers"
 )
 
-func (t *TextPcapTransformer) Apply(packet gopacket.Packet) error {
-  ethernetLayer := packet.Layer(layers.LayerTypeEthernet)
+type TextPcapTranslator struct {
+  text *strings.Builder
+}
 
-  if ethernetLayer != nil {
-    fmt.Println("Ethernet layer detected.")
-    ethernetPacket, _ := ethernetLayer.(*layers.Ethernet)
-    fmt.Println("Source MAC: ", ethernetPacket.SrcMAC)
-    fmt.Println("Destination MAC: ", ethernetPacket.DstMAC)
-    fmt.Println("Ethernet type: ", ethernetPacket.EthernetType)
-    fmt.Println()
+func (t *TextPcapTranslator) next(stream io.Writer) {
+  text := t.text
+  if text.Len() > 0 {
+    fmt.Println(text.String())
   }
+  text.Reset()
+}
 
-  ipLayer := packet.Layer(layers.LayerTypeIPv4)
+func (t *TextPcapTranslator) translate(packet *gopacket.Packet) error {
+
+  p := *packet
+
+  ipLayer := p.Layer(layers.LayerTypeIPv4)
   if ipLayer != nil {
     fmt.Println("IPv4 layer detected.")
     ip, _ := ipLayer.(*layers.IPv4)
@@ -28,13 +34,13 @@ func (t *TextPcapTransformer) Apply(packet gopacket.Packet) error {
     // Version (Either 4 or 6)
     // IHL (IP Header Length in 32-bit words)
     // TOS, Length, Id, Flags, FragOffset, TTL, Protocol (TCP?),
-    // Checksum, SrcIP, DstIP
+  // Checksum, SrcIP, DstIP
     fmt.Printf("From %s to %s\n", ip.SrcIP, ip.DstIP)
     fmt.Println("Protocol: ", ip.Protocol)
     fmt.Println()
   }
 
-  tcpLayer := packet.Layer(layers.LayerTypeTCP)
+  tcpLayer := p.Layer(layers.LayerTypeTCP)
   if tcpLayer != nil {
     fmt.Println("TCP layer detected.")
     tcp, _ := tcpLayer.(*layers.TCP)
@@ -49,13 +55,27 @@ func (t *TextPcapTransformer) Apply(packet gopacket.Packet) error {
 
   // Iterate over all layers, printing out each layer type
   fmt.Println("All packet layers:")
-  for _, layer := range packet.Layers() {
+  for _, layer := range p.Layers() {
     fmt.Println("- ", layer.LayerType())
   }
 
   // Check for errors
-  if err := packet.ErrorLayer(); err != nil {
+  if err := p.ErrorLayer(); err != nil {
     fmt.Println("Error decoding some part of the packet:", err)
   }
   return nil
 } 
+
+func (t *TextPcapTranslator) translateEthernetLayer(packet *layers.Ethernet) {
+  t.text.WriteString("[L2(")
+  t.text.WriteString(packet.EthernetType.String())
+  t.text.WriteString(") | ")
+  t.text.WriteString(packet.SrcMAC.String())
+  t.text.WriteString(" > ")
+  t.text.WriteString(packet.DstMAC.String())
+  t.text.WriteString("]")
+}
+
+func newTextPcapTranslator() *TextPcapTranslator {
+  return &TextPcapTranslator{text: new(strings.Builder)}
+}
