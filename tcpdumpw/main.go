@@ -1,13 +1,15 @@
 package main
 
 import (
+  "os"
   "fmt"
   "time"
   "flag"
-  "strings"
-  "os"
-  "os/exec"
+  "sync"
+  "regexp"
   "context"
+  "syscall"
+  "os/signal"
   "sync/atomic"
   "encoding/json"
   _ "time/tzdata"
@@ -15,19 +17,28 @@ import (
   "github.com/lrita/cmap"
   "github.com/google/uuid"
   "github.com/go-co-op/gocron/v2"
+  "github.com/gchux/cloud-run-tcpdump/pcap-writer/pkg/pcap"
 )
 
-var sidecar string = os.Getenv("RUN_SIDECAR")
-var module  string = os.Getenv("PROC_NAME")
+var devicePattern string = os.Getenv("PCAP_IFACE_PATTERN")
+var sidecar string       = os.Getenv("RUN_SIDECAR")
+var module  string       = os.Getenv("PROC_NAME")
 
 var jid, xid atomic.Value
 
+type pcapTask struct {
+  engine  pcap.PcapEngine   `json:"-"` 
+  writers []pcap.PcapWriter `json:"-"` 
+}
+
 type tcpdumpJob struct {
-  j    *gocron.Job `json:"-"`
-  Xid  string      `json:"xid,omitempty"`
-  Jid  string      `json:"jid,omitempty"`
-  Name string      `json:"name,omitempty"`
-  Tags []string    `json:"-"`
+  j     *gocron.Job     `json:"-"`
+  Xid   string          `json:"xid,omitempty"`
+  Jid   string          `json:"jid,omitempty"`
+  Name  string          `json:"name,omitempty"`
+  Tags  []string        `json:"-"`
+  tasks []*pcapTask     `json:"-"`
+  ctx   context.Context `json:"-"`
 }
 
 var jobs cmap.Map[uuid.UUID, *tcpdumpJob]
@@ -36,6 +47,7 @@ type jLogLevel string
 const (
   INFO  jLogLevel = "INFO"
   ERROR jLogLevel = "ERROR"
+  FATAL jLogLevel = "FATAL"
 )
 
 type jLogEntry struct {
@@ -79,55 +91,139 @@ func after_tcpdump(id uuid.UUID, name string) {
 
 func before_tcpdump(id uuid.UUID, name string) {
   if job, ok := jobs.Load(id); ok {
-    jlog(INFO, job, "execution started")
+    j := *job.j
+    lastRun, _ := j.LastRun()
+    jlog(INFO, job, fmt.Sprintf("execution started ( last execution: %v )", lastRun))
   }
   xid.Store(uuid.New())
 }
 
-func tcpdump(timeout time.Duration, snaplen, secs int, dir , ext , filter string) error {
+func start(ctx context.Context, timeout time.Duration, tasks []*pcapTask) error {
 
-  job_id := jid.Load().(uuid.UUID)
-
-  var job *tcpdumpJob
-  var ok bool
-  if job, ok = jobs.Load(job_id); !ok {
-    message := fmt.Sprintf("job[id:%s] not found", job_id)
-    jlog(ERROR, &empty_tcpdump_job, message)
-    return fmt.Errorf(message)
-  }
-
-  tcpdump_bin, err := exec.LookPath("tcpdump")
-  
-  if err != nil {
-    jlog(ERROR, job, "tcpdump is not available")
-    return fmt.Errorf("tcpdump is not available")
-  }
-
-  ctx := context.Background()
+  // all PCAP engines are context aware
+  var wg sync.WaitGroup
+  wg.Add(len(tasks))
 
   if timeout > 0 * time.Second {
     ctx, _ = context.WithTimeout(ctx, timeout)
   }
 
-  // tcpdump -n -s ${PCAP_SNAPLEN} -i any -w ${PCAP_FILE}_%Y%m%d_%H%M%S.${PCAP_EXT} -Z root -G ${PCAP_SECS} "${PCAP_FILTER}"
-  cmd := exec.CommandContext(ctx, tcpdump_bin,
-    "-n", "-i", "any", "-Z", "root", 
-    "-s", fmt.Sprintf("%d", snaplen),
-    "-w", fmt.Sprintf("%s/part_%%Y%%m%%d_%%H%%M-%%S.%s", dir, ext),
-    "-G", fmt.Sprintf("%d", secs),
-    fmt.Sprintf("%s", filter),
-  )
-
-  cmd.Stdout = os.Stdout
-  cmd.Stderr = os.Stderr
-
-  cmd_line := strings.Join(cmd.Args[:], " ")
-  jlog(INFO, job, fmt.Sprintf("EXEC: %v", cmd_line))
-  if err := cmd.Run(); err != nil {
-    jlog(INFO, job, fmt.Sprintf("STOP: %v", cmd_line))
+  for _, task := range tasks {
+    go func(ctx context.Context, t *pcapTask) error {
+      defer wg.Done()
+      t.engine.Start(ctx, task.writers)
+      return nil
+    }(ctx, task)
   }
 
+  // wait for context cancel/timeout
+  <-ctx.Done()
+
+  // wait for tasks to gracefully stop
+  wg.Wait()
+
   return nil
+}
+
+func tcpdump(timeout time.Duration) error {
+
+  jobId := jid.Load().(uuid.UUID)
+  exeId := xid.Load().(uuid.UUID).String()
+
+  var job *tcpdumpJob
+  var ok bool
+  if job, ok = jobs.Load(jobId); !ok {
+    message := fmt.Sprintf("job[id:%s] not found", jobId)
+    jlog(ERROR, &empty_tcpdump_job, message)
+    return fmt.Errorf(message)
+  }
+
+  // enable PCAP tasks with context awareness
+  ctx := context.WithValue(job.ctx, "id", fmt.Sprintf("%s/%s", jobId.String(), exeId))
+
+  return start(ctx, timeout, job.tasks)
+}
+
+func newPcapConfig(iface, format, output, extension, filter string, snaplen, interval int) *pcap.PcapConfig {
+  return &pcap.PcapConfig{
+    Promisc:   true,
+    Iface:     iface,
+    Snaplen:   snaplen,
+    TsType:    "",
+    Format:    format,
+    Output:    output,
+    Extension: extension,
+    Filter:    filter,
+    Interval:  interval,
+  }
+}
+
+func createTasks(directory, extension, filter *string, snaplen, interval *int, tcpdump, jsondump, jsonlog *bool) []*pcapTask {
+
+  tasks := []*pcapTask{}
+
+  ifaceRegexp, _ := regexp.Compile(fmt.Sprintf("^(?:ipvlan-)?%s\\d.*", devicePattern))
+  devices, _ := pcap.FindDevicesByRegex(ifaceRegexp)
+
+  for _, iface := range devices {
+    output := fmt.Sprintf("%s/part_%s_%%Y%%m%%d_%%H%%M%%S", *directory, iface)
+
+    tcpdumpCfg  := newPcapConfig(iface, "pcap", output, *extension, *filter, *snaplen, *interval)
+    jsondumpCfg := newPcapConfig(iface, "json", output, "json", *filter, *snaplen, *interval)
+
+    // premature optimization is the root of all evil
+    var engineErr, writerErr error = nil, nil
+    var tcpdumpEngine, jsondumpEngine pcap.PcapEngine = nil, nil
+    var jsondumpWriter pcap.PcapWriter = nil // `tcpdump` does not use custom writers
+
+    if *tcpdump {
+      tcpdumpEngine, engineErr = pcap.NewTcpdump(tcpdumpCfg)
+    } else {
+      engineErr = fmt.Errorf("disabled")
+    }
+
+    if engineErr == nil {
+      tasks = append(tasks, &pcapTask{engine: tcpdumpEngine, writers: nil})
+    } else {
+      jlog(ERROR, &empty_tcpdump_job, fmt.Sprintf("tcpdump task creation failed: %s", engineErr))
+    }
+
+    // skip JSON setup if no form fo JSON support is enabled
+    if !(*jsondump || *jsonlog) {
+      continue
+    }
+
+    engineErr = nil
+
+    // some form of JSON packet capturing is enabled
+    jsondumpEngine, engineErr = pcap.NewPcap(jsondumpCfg)
+    if engineErr != nil {
+      jlog(ERROR, &empty_tcpdump_job, fmt.Sprintf("jsondump task creation failed: %s", engineErr))
+      continue // abort all JSON setup for this device
+    }
+
+    pcapWriters := []pcap.PcapWriter{}
+
+    // writing JSON PCAP file is only enabled if `jsondump` is enabled
+    if *jsondump {
+      jsondumpWriter, writerErr = pcap.NewPcapWriter(&output, &jsondumpCfg.Extension, *interval)
+    }
+
+    if writerErr != nil {
+      jlog(ERROR, &empty_tcpdump_job, fmt.Sprintf("jsondump writer creation failed: %s", writerErr))
+    } else {
+      pcapWriters = append(pcapWriters, jsondumpWriter)
+    }
+
+    // add `/dev/stdout` as an additional PCAP writer
+    if *jsonlog {
+      pcapWriters = append(pcapWriters, os.Stdout)
+    }
+
+    tasks = append(tasks, &pcapTask{jsondumpEngine, pcapWriters})
+  }
+
+  return tasks
 }
 
 func main() {
@@ -136,11 +232,14 @@ func main() {
   use_cron  := flag.Bool("use_cron",    false,  "perform packet capture at specific intervals")
   cron_exp  := flag.String("cron_exp",  "",     "stardard cron expression; i/e: '1 * * * *'")
   duration  := flag.Int("timeout",      0,      "perform packet capture during this mount of seconds")
-  rotate_s  := flag.Int("rotate_s",     60,     "seconds after which tcpdump rotates PCAP files")
+  interval  := flag.Int("interval",     60,     "seconds after which tcpdump rotates PCAP files")
   snaplen   := flag.Int("snaplen",      0,      "bytes to be captured from each packet")
   filter    := flag.String("filter",    "",     "BPF filter to be used for capturing packets")
   extension := flag.String("extension", "pcap", "extension to be used for PCAP files")
   directory := flag.String("directory", "",     "directory where PCAP files will be stored")
+  tcp_dump  := flag.Bool("tcpdump",     true,   "enable JSON PCAP files")
+  json_dump := flag.Bool("jsondump",    false,  "enable JSON PCAP files")
+  json_log  := flag.Bool("jsonlog",     false,  "enable JSON PCAP to stardard output")
 
   flag.Parse()
 
@@ -148,15 +247,24 @@ func main() {
   xid.Store(uuid.Nil)
 
   jlog(INFO, &empty_tcpdump_job,
-    fmt.Sprintf("args[use_cron:%t|cron_exp:%s|timezone:%s|timeout:%d|extension:%s|directory:%s|snaplen:%d|filter:%s|rotate_s:%d]", 
-    *use_cron, *cron_exp, *timezone, *duration, *extension, *directory, *snaplen, *filter, *rotate_s))
+    fmt.Sprintf("args[use_cron:%t|cron_exp:%s|timezone:%s|timeout:%d|extension:%s|directory:%s|snaplen:%d|filter:%s|interval:%d|tcpdump:%t|jsondump:%t|jsonlog:%t]", 
+    *use_cron, *cron_exp, *timezone, *duration, *extension, *directory, *snaplen, *filter, *interval, *tcp_dump, *json_dump, *json_log))
+
+  tasks := createTasks(directory, extension, filter, snaplen, interval, tcp_dump, json_dump, json_log)
+  
+  if len(tasks) == 0 {
+    jlog(ERROR, &empty_tcpdump_job, "no PCAP tasks available")
+    os.Exit(1)
+  }
 
   timeout := time.Duration(*duration) * time.Second
   jlog(INFO, &empty_tcpdump_job, fmt.Sprintf("parsed timeout: %v", timeout))
 
+  ctx, cancel := context.WithCancel(context.Background())
+
   // Skip scheduling, execute `tcpdump`
   if !*use_cron {
-    tcpdump(timeout, *snaplen, *rotate_s, *directory, *extension, *filter)
+    start(ctx, timeout, tasks)
     return
   }
 
@@ -184,13 +292,13 @@ func main() {
   )
   if err != nil {
     jlog(ERROR, &empty_tcpdump_job, fmt.Sprintf("failed to create scheduler: %v", err))
-    return
+    os.Exit(2)
   }
 
   // Use the provided `cron` expression ro schedule the packet capturing job
   j, err := s.NewJob(
     gocron.CronJob(*cron_exp, true),
-    gocron.NewTask(tcpdump, timeout, *snaplen, *rotate_s, *directory, *extension, *filter),
+    gocron.NewTask(tcpdump, timeout),
     gocron.WithName("tcpdump"),
     gocron.WithSingletonMode(gocron.LimitModeReschedule),
     gocron.WithEventListeners(
@@ -200,21 +308,41 @@ func main() {
   )
   if err != nil {
     jlog(ERROR, &empty_tcpdump_job, fmt.Sprintf("failed to create scheduled job: %v", err))
-    return
+    s.Shutdown()
+    os.Exit(3)
   }
 
   jid.Store(j.ID())
 
-  job := &tcpdumpJob{Jid: j.ID().String(), Name: j.Name(), Tags: j.Tags(), j: &j}
+  job := &tcpdumpJob{
+    ctx: ctx, 
+    tasks: tasks,
+    Jid: j.ID().String(),
+    Name: j.Name(),
+    Tags: j.Tags(), 
+    j: &j,
+  }
   jobs.Store(j.ID(), job)
   jlog(INFO, job, "scheduled job")
-
+  
   // Start the packet capturing scheduler
   s.Start()
   
   nextRun, _ := j.NextRun()
   jlog(INFO, job, fmt.Sprintf("next execution: %v", nextRun))
 
+  signals := make(chan os.Signal)
+  signal.Notify(signals, os.Interrupt, syscall.SIGTERM, syscall.SIGINT)
+  go func(job *tcpdumpJob) {
+    signal := <-signals
+    jlog(INFO, job, fmt.Sprintf("signaled: %v", signal))
+    cancel()
+  }(job)
+
   // Block main goroutine forever.
-  <-make(chan struct{})
+  <-ctx.Done()
+
+  s.StopJobs()
+  s.RemoveJob(j.ID())
+  s.Shutdown()
 }
