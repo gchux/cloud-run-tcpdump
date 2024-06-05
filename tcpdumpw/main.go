@@ -109,10 +109,9 @@ func start(ctx context.Context, timeout time.Duration, tasks []*pcapTask) error 
   }
 
   for _, task := range tasks {
-    go func(ctx context.Context, t *pcapTask) error {
+    go func(ctx context.Context, t *pcapTask) {
       defer wg.Done()
       t.engine.Start(ctx, task.writers)
-      return nil
     }(ctx, task)
   }
 
