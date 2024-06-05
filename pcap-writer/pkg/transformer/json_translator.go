@@ -2,6 +2,7 @@ package transformer
 
 import (
   "fmt"
+  "context"
 
   "github.com/Jeffail/gabs/v2"
   "github.com/google/gopacket"
@@ -18,7 +19,7 @@ func (t *JsonPcapTranslator) next() fmt.Stringer {
   return gabs.New()
 }
 
-func (t *JsonPcapTranslator) translateEthernetLayer(packet *layers.Ethernet, buffer fmt.Stringer) {
+func (t *JsonPcapTranslator) translateEthernetLayer(ctx context.Context, packet *layers.Ethernet, buffer fmt.Stringer) {
   jsonObj := buffer.(*gabs.Container)
   jsonObj.Set(packet.EthernetType.String(), "L2", "type")
   jsonObj.Set(packet.SrcMAC.String(), "L2", "src")

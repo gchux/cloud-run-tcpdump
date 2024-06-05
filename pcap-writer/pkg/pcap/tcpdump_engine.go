@@ -6,6 +6,7 @@ import (
   "log"
   "strings"
   "context"
+  "syscall"
   "os/exec"
   "sync/atomic"
   "path/filepath"
@@ -41,26 +42,23 @@ func (t *Tcpdump) buildArgs(ctx context.Context) []string {
   return args
 }
 
-func (t *Tcpdump) Start(ctx context.Context, _ PcapWriter) error {
+func (t *Tcpdump) Start(ctx context.Context, _ []PcapWriter) error {
 
   // atomically activate the packet capture
   if !t.isActive.CompareAndSwap(false, true) {
     return fmt.Errorf("already started")
   }
 
-  tcpdumpBin, err := exec.LookPath("tcpdump")
-  
-  if err != nil {
-    logger.Fatalln("tcpdump is not available")
-    t.isActive.Store(false)
-    return fmt.Errorf("tcpdump is unavailable")
-  }
-
   cfg := t.config
 
   args := t.buildArgs(ctx)
 
-  cmd := exec.CommandContext(ctx, tcpdumpBin, args...)
+  cmd := exec.CommandContext(ctx, t.tcpdump, args...)
+
+  // prevent child process from hijacking signals
+  cmd.SysProcAttr = &syscall.SysProcAttr{
+    Setpgid: true, Pgid: 0,
+  }
 
   if cfg.Output == "stdout" {
     cmd.Stdout = os.Stdout
@@ -70,18 +68,27 @@ func (t *Tcpdump) Start(ctx context.Context, _ PcapWriter) error {
   cmdLine := strings.Join(cmd.Args[:], " ")
   logger.Printf("EXEC: %v\n", cmdLine)
   if err := cmd.Run(); err != nil {
+    cmd.Process.Kill()
     logger.Printf("STOP: %v\n", cmdLine)
+    t.isActive.Store(false)
     return err
   }
+
+  t.isActive.Store(false)
 
   return nil
 }
 
 func NewTcpdump(config *PcapConfig) (PcapEngine, error) {
   
+  tcpdumpBin, err := exec.LookPath("tcpdump")
+  if err != nil {
+    return nil, fmt.Errorf("tcpdump is unavailable")
+  }
+
   var isActive atomic.Bool
   isActive.Store(false)
 
-  tcpdump := Tcpdump{config: config, isActive: isActive}
+  tcpdump := Tcpdump{config: config, tcpdump: tcpdumpBin, isActive: isActive}
   return &tcpdump, nil
 } 

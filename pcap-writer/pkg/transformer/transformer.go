@@ -13,7 +13,7 @@ import (
 type PcapTranslator interface {
   translate(packet *gopacket.Packet) error
   next() fmt.Stringer 
-  translateEthernetLayer(packet *layers.Ethernet, buffer fmt.Stringer)
+  translateEthernetLayer(ctx context.Context, packet *layers.Ethernet, buffer fmt.Stringer)
 }
 
 type PcapTransformer struct {
@@ -21,6 +21,7 @@ type PcapTransformer struct {
   output     string
   ctx        context.Context
   ich        chan<- concurrently.WorkFunction
+  och        <-chan concurrently.OrderedOutput
 }
 
 type IPcapTransformer interface {
@@ -45,7 +46,7 @@ func (p pcapWorker) Run(ctx context.Context) interface{} {
   ethernetLayer := P.Layer(layers.LayerTypeEthernet)
   if ethernetLayer != nil {
     ethernetPacket, _ := ethernetLayer.(*layers.Ethernet)
-    T.translateEthernetLayer(ethernetPacket, buffer)
+    T.translateEthernetLayer(ctx, ethernetPacket, buffer)
   }
   
   return buffer.String()
@@ -63,7 +64,25 @@ func (t *PcapTransformer) Apply(packet *gopacket.Packet) error {
   return nil
 }
 
-func NewTransformer(ctx context.Context, writer io.Writer, format *string) (IPcapTransformer, error) {
+func writePacket(ctx context.Context, writer io.Writer, out concurrently.OrderedOutput) {
+  fmt.Fprintf(writer, "%s\n", out.Value)
+}
+
+func writePackets(ctx context.Context, i chan<- concurrently.WorkFunction, o <-chan concurrently.OrderedOutput, writers []io.Writer) {
+  for {
+    select {
+    case out := <-o:
+      for _, writer := range writers {
+        go writePacket(ctx, writer, out)
+      }
+    case <-ctx.Done():
+      close(i)
+      return
+    }
+  }
+}
+
+func NewTransformer(ctx context.Context, writers []io.Writer, format *string) (IPcapTransformer, error) {
 
   translator, err := newTranslator(format)
   if err != nil {
@@ -74,20 +93,10 @@ func NewTransformer(ctx context.Context, writer io.Writer, format *string) (IPca
   ochOpts := &concurrently.Options{PoolSize: 10, OutChannelBuffer: 10}
   och := concurrently.Process(ctx, ich, ochOpts)
 
-  go func(ctx context.Context, i chan concurrently.WorkFunction, o <-chan concurrently.OrderedOutput, w io.Writer) {
-    for {
-      select {
-      case out := <-o:
-        fmt.Fprintf(w, "%s\n", out.Value)
-      case <-ctx.Done():
-        close(i)
-        return
-      }
-    }
-  }(ctx, ich, och, writer)
+  go writePackets(ctx, ich, och, writers)
 
   // same transformer, multiple strategies
-  return &PcapTransformer{translator: translator, ctx: ctx, ich: ich}, nil
+  return &PcapTransformer{translator: translator, ctx: ctx, ich: ich, och: och}, nil
 }
 
 func newTranslator(format *string) (PcapTranslator, error) {

@@ -7,6 +7,7 @@ import (
   "flag"
   "time"
   "errors"
+  "regexp"
   "context"
   "syscall"
   "os/signal"
@@ -25,6 +26,7 @@ var filter    = flag.String("bpf",     "",        "Set BPF filter to be used")
 var timeout   = flag.Int("timeout",    0,         "Set packet capturing total duration in seconds")
 var interval  = flag.Int("interval",   0,         "Set packet capture file rotation interval in seconds")
 var extension = flag.String("ext",     "",        "Set pcap files extension: pcap, json, txt")
+var stdout    = flag.Bool("stdout",    false,     "Log translation to standard output; only if 'w' is not 'stdout'")
 
 var logger = log.New(os.Stderr, "[pcap] - ", log.LstdFlags)
 
@@ -72,6 +74,11 @@ func main() {
     Extension: *extension,
   }
 
+  exp, _  := regexp.Compile(fmt.Sprintf("^(?:ipvlan-)?%s.*", *iface))
+  devs, _ := pcap.FindDevicesByRegex(exp)
+  logger.Printf("device: %v\n", devs)
+
+
   var err error
   var pcapEngine pcap.PcapEngine
 
@@ -81,10 +88,10 @@ func main() {
     return
   }
 
-  var writer pcap.PcapWriter
-  writer, err = pcap.NewPcapWriter(writeTo, extension, *interval)
+  var pcapWriter pcap.PcapWriter
+  pcapWriter, err = pcap.NewPcapWriter(writeTo, extension, *interval)
   if err != nil {
-    writer = os.Stdout
+    pcapWriter = os.Stdout
   }
 
   var ctx context.Context = context.Background()
@@ -103,7 +110,12 @@ func main() {
     cancel() 
   }()
 
-  err = pcapEngine.Start(ctx, writer)
+  pcapWriters := []pcap.PcapWriter{pcapWriter}
+  if *stdout && config.Output != "stdout" {
+    pcapWriters = append(pcapWriters, os.Stdout)
+  }
+
+  err = pcapEngine.Start(ctx, pcapWriters)
   if err != nil {
     handleError(err)
   }

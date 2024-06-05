@@ -2,6 +2,7 @@ package transformer
 
 import (
   "fmt"
+  "context"
   "strings"
 
   "github.com/google/gopacket"
@@ -59,7 +60,7 @@ func (t *TextPcapTranslator) translate(packet *gopacket.Packet) error {
   return nil
 } 
 
-func (t *TextPcapTranslator) translateEthernetLayer(packet *layers.Ethernet, buffer fmt.Stringer) {
+func (t *TextPcapTranslator) translateEthernetLayer(ctx context.Context, packet *layers.Ethernet, buffer fmt.Stringer) {
   text := buffer.(*strings.Builder)
   text.WriteString("[L2(")
   text.WriteString(packet.EthernetType.String())

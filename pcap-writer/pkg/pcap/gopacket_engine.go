@@ -1,9 +1,12 @@
 package pcap
 
 import (
+  "os"
+  "io"
   "fmt"
   "log"
   "time"
+  "bufio"
   "context"
   "sync/atomic"
 
@@ -17,70 +20,9 @@ func (p *Pcap) IsActive() bool {
   return p.isActive.Load()
 }
 
-func (p *Pcap) Start(ctx context.Context, writer PcapWriter) error {
-
-  // atomically activate the packet capture
-  if !p.isActive.CompareAndSwap(false, true) {
-    return fmt.Errorf("already started")
-  }
-
-  var err error
-  var handle *gpcap.Handle
-
-  inactiveHandle := p.inactiveHandle
-  defer inactiveHandle.CleanUp()
-
-  if handle, err = inactiveHandle.Activate(); err != nil {
-    p.isActive.Store(false)
-    return fmt.Errorf("failed to activate: %s", err)
-  }
-  p.activeHandle = handle
-  defer handle.Close()
+func (p *Pcap) newPcap() (*gpcap.InactiveHandle, error) {
 
   cfg := *p.config
-
-  // set packet capture filter; i/e: `tcp port 443`
-  var filter string = cfg.Filter
-  if filter != "" {
-    if err = handle.SetBPFFilter(filter); err != nil {
-      return fmt.Errorf("BPF filter error: %s", err)
-    }
-  }
-
-  // if format is `default` output is similar to `tcpdump`
-  var format string = cfg.Format
-  if format == "default" {
-    dumpcommand.Run(handle) // `gopacket` default implementation
-    return nil
-  }
-
-  source := gopacket.NewPacketSource(handle, handle.LinkType())
-  source.Lazy = false
-  source.NoCopy = true
-  source.DecodeStreamsAsDatagrams = true
-
-  // create new transformer for the specified output format
-  fn, err := transformer.NewTransformer(ctx, writer, &format)
-  if err != nil {
-    return fmt.Errorf("invalid format: %s", err)
-  }
-  p.fn = fn
-
-  for {
-    select {
-    case packet := <-source.Packets():
-      // non-blocking operation
-      fn.Apply(&packet)
-    case <-ctx.Done():
-      writer.Close()
-      return ctx.Err()
-    }
-  }
-}
-
-func NewPcap(config *PcapConfig) (PcapEngine, error) {
-
-  cfg := *config
 
   var err error
 
@@ -114,9 +56,98 @@ func NewPcap(config *PcapConfig) (PcapEngine, error) {
     }
   }
 
+  p.inactiveHandle = inactiveHandle
+
+  return inactiveHandle, nil
+}
+
+func (p *Pcap) Start(ctx context.Context, writers []PcapWriter) error {
+
+  // atomically activate the packet capture
+  if !p.isActive.CompareAndSwap(false, true) {
+    return fmt.Errorf("already started")
+  }
+
+  var err error
+  var handle *gpcap.Handle
+
+  inactiveHandle, err := p.newPcap()
+  if err != nil {
+    return err
+  }
+  defer inactiveHandle.CleanUp()
+
+  if handle, err = inactiveHandle.Activate(); err != nil {
+    p.isActive.Store(false)
+    return fmt.Errorf("failed to activate: %s", err)
+  }
+  p.activeHandle = handle
+  defer handle.Close()
+
+  cfg := *p.config
+
+  // set packet capture filter; i/e: `tcp port 443`
+  var filter string = cfg.Filter
+  if filter != "" {
+    if err = handle.SetBPFFilter(filter); err != nil {
+      return fmt.Errorf("BPF filter error: %s", err)
+    }
+  }
+
+  // if format is `default` output is similar to `tcpdump`
+  var format string = cfg.Format
+  if format == "default" {
+    dumpcommand.Run(handle) // `gopacket` default implementation
+    return nil
+  }
+
+  source := gopacket.NewPacketSource(handle, handle.LinkType())
+  source.Lazy = false
+  source.NoCopy = true
+  source.DecodeStreamsAsDatagrams = true
+
+  // saving buffered writers in advance
+  bufferedWriters := []*bufio.Writer{}
+  // `io.Writer` is what `fmt.Fprintf` requires 
+  ioWriters := make([]io.Writer, len(writers))
+  for i, writer := range writers {
+    // except for `stdout` all other writers are buffered
+    if writer == os.Stdout {
+      ioWriters[i] = writer
+    } else {
+      bufferedWriter := bufio.NewWriter(writer)
+      ioWriters[i] = bufferedWriter
+      bufferedWriters = append(bufferedWriters, bufferedWriter)
+    }
+  }
+  // create new transformer for the specified output format
+  fn, err := transformer.NewTransformer(ctx, ioWriters, &format)
+  if err != nil {
+    return fmt.Errorf("invalid format: %s", err)
+  }
+  p.fn = fn
+
+  for {
+    select {
+    case packet := <-source.Packets():
+      // non-blocking operation
+      fn.Apply(&packet)
+    case <-ctx.Done():
+      // do not close engine's writers until `stop` is called
+      for _, writer := range bufferedWriters {
+        writer.Flush()
+      }
+      p.isActive.Store(false)
+      return ctx.Err()
+    }
+  }
+}
+
+func NewPcap(config *PcapConfig) (PcapEngine, error) {
+
   var isActive atomic.Bool
   isActive.Store(false)
   
-  pcap := Pcap{config: config, inactiveHandle: inactiveHandle, isActive: isActive}
+  pcap := Pcap{config: config, isActive: isActive}
   return &pcap, nil
 }

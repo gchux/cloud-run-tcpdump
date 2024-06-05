@@ -22,7 +22,7 @@ type PcapConfig struct{
 }
 
 type PcapEngine interface{
-  Start(context.Context, PcapWriter) error
+  Start(context.Context, []PcapWriter) error
   IsActive() bool
 }
 
@@ -37,6 +37,7 @@ type Pcap struct {
 type Tcpdump struct {
   config   *PcapConfig
   isActive atomic.Bool
+  tcpdump  string
 }
 
 func FindDevicesByRegex(exp *regexp.Regexp) ([]string, error) {

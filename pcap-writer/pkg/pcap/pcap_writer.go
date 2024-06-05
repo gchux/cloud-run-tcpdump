@@ -49,7 +49,7 @@ func NewPcapWriter(template, extension *string, rotateSecs int) (PcapWriter, err
 	logger := log.New(os.Stderr, "[pcap/rotate] - ", log.LstdFlags)
 
 	fileNameTemplate := fmt.Sprintf("%s.%s", *template, *extension)
-
+	
   nameProvider := &pcapFileNameProvider{
 		directory: filepath.Dir(fileNameTemplate),
 		template:  filepath.Base(fileNameTemplate),
