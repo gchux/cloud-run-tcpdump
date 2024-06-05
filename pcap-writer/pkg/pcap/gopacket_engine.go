@@ -17,7 +17,7 @@ func (p *Pcap) IsActive() bool {
   return p.isActive.Load()
 }
 
-func (p *Pcap) Start(ctx context.Context) error {
+func (p *Pcap) Start(ctx context.Context, writer PcapWriter) error {
 
   // atomically activate the packet capture
   if !p.isActive.CompareAndSwap(false, true) {
@@ -60,19 +60,22 @@ func (p *Pcap) Start(ctx context.Context) error {
   source.DecodeStreamsAsDatagrams = true
 
   // create new transformer for the specified output format
-  fn, err := transformer.NewTransformer(ctx, &cfg.Output, &format)
+  fn, err := transformer.NewTransformer(ctx, writer, &format)
   if err != nil {
     return fmt.Errorf("invalid format: %s", err)
   }
   p.fn = fn
 
-  // `fn.Apply` is non-blocking
-  for packet := range source.Packets() {
-    fn.Apply(&packet)
-    // use `packet.Data()` to write bytes to a PCAP file
+  for {
+    select {
+    case packet := <-source.Packets():
+      // non-blocking operation
+      fn.Apply(&packet)
+    case <-ctx.Done():
+      writer.Close()
+      return ctx.Err()
+    }
   }
-
-  return nil
 }
 
 func NewPcap(config *PcapConfig) (PcapEngine, error) {

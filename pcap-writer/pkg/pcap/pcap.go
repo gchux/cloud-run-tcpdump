@@ -1,6 +1,7 @@
 package pcap
 
 import (
+  "regexp"
   "context"
   "sync/atomic"
 
@@ -9,28 +10,49 @@ import (
 )
 
 type PcapConfig struct{
-  Promisc bool
-  Iface   string
-  Snaplen int
-  TsType  string
-  Format  string
-  Filter  string
-  Output  string
+  Promisc   bool
+  Iface     string
+  Snaplen   int
+  TsType    string
+  Format    string
+  Filter    string
+  Output    string
+  Extension string
+  Interval  int
 }
 
 type PcapEngine interface{
-  Start(context.Context) error
+  Start(context.Context, PcapWriter) error
   IsActive() bool
 }
 
-type Pcap struct{
+type Pcap struct {
   config         *PcapConfig
+  isActive       atomic.Bool
   activeHandle   *gpcap.Handle
   inactiveHandle *gpcap.InactiveHandle
-  isActive       atomic.Bool
   fn             transformer.IPcapTransformer
 }
 
-type Tcpdump struct{
-  config *PcapConfig
+type Tcpdump struct {
+  config   *PcapConfig
+  isActive atomic.Bool
+}
+
+func FindDevicesByRegex(exp *regexp.Regexp) ([]string, error) {
+
+  devices, err := gpcap.FindAllDevs()
+  if err != nil {
+    return nil, err
+  }
+
+  var devs []string
+
+  for _, device := range devices {
+    if exp.MatchString(device.Name) {
+      devs = append(devs, device.Name)
+    }
+  }
+
+  return devs, nil
 }

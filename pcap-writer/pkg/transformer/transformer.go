@@ -1,10 +1,8 @@
 package transformer
 
 import (
-  "os"
   "io"
   "fmt"
-  "bufio"
   "context"
 
   "github.com/google/gopacket"
@@ -22,17 +20,11 @@ type PcapTransformer struct {
   translator PcapTranslator
   output     string
   ctx        context.Context
-  ich        chan concurrently.WorkFunction
+  ich        chan<- concurrently.WorkFunction
 }
 
 type IPcapTransformer interface {
   Apply(packet *gopacket.Packet) error
-}
-
-type pcapWriter struct { // pcapStreamProvider
-  targetFile *os.File
-  buffered   bool
-  closeable  bool
 }
 
 // Create a type based on your input to the work function
@@ -71,25 +63,7 @@ func (t *PcapTransformer) Apply(packet *gopacket.Packet) error {
   return nil
 }
 
-func getPcapWriter(output *string) *pcapWriter {
-
-  outFile := *output
-
-  if outFile == "stdout" {
-    return &pcapWriter{targetFile: os.Stdout, buffered: false, closeable: false}
-  } else if outFile == "stderr" {
-    return &pcapWriter{targetFile: os.Stderr, buffered: false, closeable: false}
-  }
-
-  targetFile, err := os.Create(outFile)
-  if err != nil {
-    return &pcapWriter{targetFile: os.Stdout, buffered: false, closeable: false}
-  }
-
-  return &pcapWriter{targetFile: targetFile, buffered: true, closeable: true}
-}
-
-func NewTransformer(ctx context.Context, output, format *string) (IPcapTransformer, error) {
+func NewTransformer(ctx context.Context, writer io.Writer, format *string) (IPcapTransformer, error) {
 
   translator, err := newTranslator(format)
   if err != nil {
@@ -100,29 +74,17 @@ func NewTransformer(ctx context.Context, output, format *string) (IPcapTransform
   ochOpts := &concurrently.Options{PoolSize: 10, OutChannelBuffer: 10}
   och := concurrently.Process(ctx, ich, ochOpts)
 
-  stream := getPcapWriter(output)
-  go func(och <-chan concurrently.OrderedOutput, stream *pcapWriter) {
-    var w io.Writer = stream.targetFile
-    if stream.buffered {
-      w = bufio.NewWriter(stream.targetFile)
+  go func(ctx context.Context, i chan concurrently.WorkFunction, o <-chan concurrently.OrderedOutput, w io.Writer) {
+    for {
+      select {
+      case out := <-o:
+        fmt.Fprintf(w, "%s\n", out.Value)
+      case <-ctx.Done():
+        close(i)
+        return
+      }
     }
-    for out := range och {
-      // [ToDo]:  @gchux
-      // 1. enable PCAP file rotation after x amout of secs
-      // 2. stream should be a provider, not a concrete type
-      //    2.1 provider should only return new files for non std[out|err]
-      //    2.2 provider should be passed as an `interface` instead of a `string`
-      //        2.2.1 `PcapTransformer` must not be responsible for files rotation
-      fmt.Fprintf(w, "%s\n", out.Value)
-    }
-    // pcapStreamProvider should flush and close on `rotate()`
-    if stream.buffered {
-      w.(*bufio.Writer).Flush()
-    }
-    if stream.closeable {
-      stream.targetFile.Close()
-    }
-  }(och, stream)
+  }(ctx, ich, och, writer)
 
   // same transformer, multiple strategies
   return &PcapTransformer{translator: translator, ctx: ctx, ich: ich}, nil
