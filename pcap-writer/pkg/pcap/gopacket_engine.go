@@ -6,10 +6,10 @@ import (
   "fmt"
   "log"
   "time"
-  "bufio"
   "context"
   "sync/atomic"
 
+  // "github.com/easyCZ/logrotate"
   "github.com/google/gopacket"
   gpcap "github.com/google/gopacket/pcap"
   "github.com/google/gopacket/dumpcommand"
@@ -106,18 +106,16 @@ func (p *Pcap) Start(ctx context.Context, writers []PcapWriter) error {
   source.NoCopy = true
   source.DecodeStreamsAsDatagrams = true
 
+  numWriters := len(writers)
   // saving buffered writers in advance
-  bufferedWriters := []*bufio.Writer{}
+  pcapWriters := []*pcapWriter{}
   // `io.Writer` is what `fmt.Fprintf` requires 
-  ioWriters := make([]io.Writer, len(writers))
+  ioWriters := make([]io.Writer, numWriters, numWriters)
   for i, writer := range writers {
+    ioWriters[i] = writer
     // except for `stdout` all other writers are buffered
-    if writer == os.Stdout {
-      ioWriters[i] = writer
-    } else {
-      bufferedWriter := bufio.NewWriter(writer)
-      ioWriters[i] = bufferedWriter
-      bufferedWriters = append(bufferedWriters, bufferedWriter)
+    if writer != os.Stdout {
+      pcapWriters = append(pcapWriters, writer.(*pcapWriter))
     }
   }
   // create new transformer for the specified output format
@@ -134,8 +132,8 @@ func (p *Pcap) Start(ctx context.Context, writers []PcapWriter) error {
       fn.Apply(&packet)
     case <-ctx.Done():
       // do not close engine's writers until `stop` is called
-      for _, writer := range bufferedWriters {
-        writer.Flush()
+      for _, writer := range pcapWriters {
+        writer.flush()
       }
       p.isActive.Store(false)
       return ctx.Err()

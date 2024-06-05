@@ -6,6 +6,8 @@ import (
   "fmt"
   "log"
   "time"
+  "unsafe"
+  "reflect"
   "path/filepath"
 
   "github.com/easyCZ/logrotate"
@@ -16,6 +18,33 @@ type PcapWriter interface {
   io.Writer
   io.Closer
 } 
+
+type pcapWriter struct {
+  *logrotate.Writer
+  v                reflect.Value
+  osFile           reflect.Value
+  osFileSync       reflect.Value
+  bufioWriter      reflect.Value
+  bufioWriterFlush reflect.Value
+}
+
+func makeSetable(v reflect.Value) reflect.Value {
+	return reflect.NewAt(v.Type(), unsafe.Pointer(v.UnsafeAddr())).Elem()
+}
+
+func getField(v reflect.Value, field string) reflect.Value {
+  return v.Elem().FieldByName(field)
+}
+
+func getStableField(v reflect.Value, field string) reflect.Value {
+  return makeSetable(getField(v, field))
+}
+
+func (w *pcapWriter) flush() {
+
+  w.bufioWriterFlush.Call(nil)
+  w.osFileSync.Call(nil)
+}
 
 type pcapFileNameProvider struct {
   directory string
@@ -66,5 +95,17 @@ func NewPcapWriter(template, extension *string, rotateSecs int) (PcapWriter, err
 		return nil, err
 	}
 
-  return writer, nil
+  v := reflect.ValueOf(writer)
+
+  // `logrotate` does not provide handles to flush the underlying file;
+  // since PCAP engines are started atomically and current execution must complete
+  // before a new one can be started; it is safe to `flush` and `sync` PCAP files.
+  // https://github.com/easyCZ/logrotate/blob/master/writer.go
+  osFile := getStableField(v, "f")
+  osFileSync := osFile.MethodByName("Sync")
+  
+  bufioWriter := getStableField(v, "bw")
+  bufioWriterFlush := bufioWriter.MethodByName("Flush")
+
+  return &pcapWriter{writer, v, osFile, osFileSync, bufioWriter, bufioWriterFlush}, nil
 }
