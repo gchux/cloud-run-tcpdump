@@ -4,12 +4,15 @@ import (
   "os"
   "fmt"
   "log"
+  "errors"
   "strings"
   "context"
   "syscall"
   "os/exec"
   "sync/atomic"
   "path/filepath"
+
+  ps "github.com/mitchellh/go-ps"
 )
 
 var logger = log.New(os.Stderr, "[tcpdump] - ", log.LstdFlags)
@@ -42,11 +45,47 @@ func (t *Tcpdump) buildArgs(ctx context.Context) []string {
   return args
 }
 
+func (t *Tcpdump) kill(pid int) error {
+  proc, err := os.FindProcess(pid)
+  if err != nil {
+    return err
+  }
+  return proc.Signal(syscall.SIGTERM)
+}
+
+func (t *Tcpdump) findAndKill() (int, error) {
+
+  processes, err := ps.Processes()
+  if err != nil {
+    return 0, err
+  }
+
+  killCounter := 0
+  for _, p := range processes {
+    procId := p.Pid()
+    execName := p.Executable()
+    if execName == "tcpdump" {
+      logger.Printf("killing %s(%d)\n", execName, procId)
+      if err := t.kill(procId); err == nil {
+        killCounter++
+      }
+    }
+  }
+  return killCounter, nil
+}
+
 func (t *Tcpdump) Start(ctx context.Context, _ []PcapWriter) error {
 
   // atomically activate the packet capture
   if !t.isActive.CompareAndSwap(false, true) {
     return fmt.Errorf("already started")
+  }
+  
+  // check for orphaned executions before starting a new one
+  // orphaned tcpdump executions should be exceedingly rare
+  killedProcs, err := t.findAndKill()
+  if err == nil && killedProcs > 0 {
+    logger.Printf("killed %d processes", killedProcs)
   }
 
   cfg := t.config
@@ -68,15 +107,15 @@ func (t *Tcpdump) Start(ctx context.Context, _ []PcapWriter) error {
   cmdLine := strings.Join(cmd.Args[:], " ")
   logger.Printf("EXEC: %v\n", cmdLine)
   if err := cmd.Run(); err != nil {
-    cmd.Process.Kill()
+    killErr := cmd.Process.Kill()
     logger.Printf("STOP: %v\n", cmdLine)
     t.isActive.Store(false)
-    return err
+    return errors.Join(err, killErr)
   }
 
   t.isActive.Store(false)
-
   return nil
+
 }
 
 func NewTcpdump(config *PcapConfig) (PcapEngine, error) {
