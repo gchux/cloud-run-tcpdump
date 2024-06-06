@@ -9,7 +9,6 @@ import (
   "context"
   "sync/atomic"
 
-  // "github.com/easyCZ/logrotate"
   "github.com/google/gopacket"
   gpcap "github.com/google/gopacket/pcap"
   "github.com/google/gopacket/dumpcommand"
@@ -132,8 +131,10 @@ func (p *Pcap) Start(ctx context.Context, writers []PcapWriter) error {
       fn.Apply(&packet)
     case <-ctx.Done():
       // do not close engine's writers until `stop` is called
+      // if the context is done, simply rotate the curren Pcap file
+      // PCAP file rotation includes: flush and sync
       for _, writer := range pcapWriters {
-        writer.flush()
+        writer.rotate()
       }
       p.isActive.Store(false)
       return ctx.Err()

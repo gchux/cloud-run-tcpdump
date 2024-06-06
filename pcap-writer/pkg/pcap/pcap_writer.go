@@ -28,6 +28,9 @@ type pcapWriter struct {
   bufioWriterFlush reflect.Value
 }
 
+//go:linkname rotate github.com/easyCZ/logrotate.(*Writer).rotate
+func rotate(w *logrotate.Writer)
+
 func makeSetable(v reflect.Value) reflect.Value {
 	return reflect.NewAt(v.Type(), unsafe.Pointer(v.UnsafeAddr())).Elem()
 }
@@ -40,10 +43,12 @@ func getStableField(v reflect.Value, field string) reflect.Value {
   return makeSetable(getField(v, field))
 }
 
-func (w *pcapWriter) flush() {
+func (w *pcapWriter) rotate() {
+  // w.bufioWriterFlush.Call(nil)
+  // w.osFileSync.Call(nil)
 
-  w.bufioWriterFlush.Call(nil)
-  w.osFileSync.Call(nil)
+  // see: https://pkg.go.dev/cmd/compile#:~:text=//-,go%3Alinkname,-localname%20%5Bimportpath.name
+  rotate(w.Writer)
 }
 
 type pcapFileNameProvider struct {
