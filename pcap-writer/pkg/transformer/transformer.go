@@ -57,7 +57,7 @@ func (w pcapWorker) Run(ctx context.Context) interface{} {
 }
 
 func (t *PcapTransformer) translatePacket(ctx context.Context, packet *gopacket.Packet, serial *int64) {
-	t.ich <- pcapWorker{serial: serial, packet: packet, translator: t.translator}
+	t.ich <- &pcapWorker{serial: serial, packet: packet, translator: t.translator}
 }
 
 func (t *PcapTransformer) Apply(ctx context.Context, packet *gopacket.Packet, serial *int64) error {

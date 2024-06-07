@@ -108,7 +108,8 @@ func start(ctx context.Context, timeout time.Duration, tasks []*pcapTask) error 
 	wg.Add(len(tasks))
 
 	if timeout > 0*time.Second {
-		ctx, _ = context.WithTimeout(ctx, timeout)
+		ctx, cancel = context.WithTimeout(ctx, timeout)
+		defer cancel()
 	}
 
 	for _, task := range tasks {
@@ -269,6 +270,7 @@ func main() {
 	jlog(INFO, &empty_tcpdump_job, fmt.Sprintf("parsed timeout: %v", timeout))
 
 	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
 
 	// Skip scheduling, execute `tcpdump`
 	if !*use_cron {
