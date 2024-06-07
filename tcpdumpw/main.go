@@ -215,15 +215,16 @@ func createTasks(directory, extension, filter *string, snaplen, interval *int, t
 			pcapWriters = append(pcapWriters, jsondumpWriter)
 		}
 
-		UNUSED(jsonlogWriter)
-
-		// add `/dev/stdout` as an additional PCAP writer
-		if *jsonlog {
-			jsonlogWriter, writerErr = pcap.NewStdoutPcapWriter()
+		if !*jsonlog && writerErr == nil {
+			tasks = append(tasks, &pcapTask{jsondumpEngine, pcapWriters})
+			continue
 		}
 
+		// add `/dev/stdout` as an additional PCAP writer
+		jsonlogWriter, writerErr = pcap.NewStdoutPcapWriter()
 		if writerErr != nil {
 			jlog(ERROR, &empty_tcpdump_job, fmt.Sprintf("jsondump stdout writer creation failed: %s", writerErr))
+			continue
 		} else {
 			pcapWriters = append(pcapWriters, jsonlogWriter)
 		}
