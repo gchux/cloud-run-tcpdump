@@ -107,6 +107,7 @@ func start(ctx context.Context, timeout time.Duration, tasks []*pcapTask) error 
 	var wg sync.WaitGroup
 	wg.Add(len(tasks))
 
+	var cancel context.CancelFunc
 	if timeout > 0*time.Second {
 		ctx, cancel = context.WithTimeout(ctx, timeout)
 		defer cancel()
@@ -160,7 +161,7 @@ func newPcapConfig(iface, format, output, extension, filter string, snaplen, int
 	}
 }
 
-func createTasks(directory, extension, filter *string, snaplen, interval *int, tcpdump, jsondump, jsonlog *bool) []*pcapTask {
+func createTasks(directory, extension, filter *string, snaplen, interval *int, tcpdump, jsondump, jsonlog, ordered *bool) []*pcapTask {
 	tasks := []*pcapTask{}
 
 	ifaceRegexp, _ := regexp.Compile(fmt.Sprintf("^(?:ipvlan-)?%s\\d.*", devicePattern))
@@ -195,6 +196,8 @@ func createTasks(directory, extension, filter *string, snaplen, interval *int, t
 		}
 
 		engineErr = nil
+
+		jsondumpCfg.Ordered = *ordered
 
 		// some form of JSON packet capturing is enabled
 		jsondumpEngine, engineErr = pcap.NewPcap(jsondumpCfg)
@@ -246,9 +249,10 @@ func main() {
 	filter := flag.String("filter", "", "BPF filter to be used for capturing packets")
 	extension := flag.String("extension", "pcap", "extension to be used for PCAP files")
 	directory := flag.String("directory", "", "directory where PCAP files will be stored")
-	tcp_dump := flag.Bool("tcpdump", true, "enable JSON PCAP files")
-	json_dump := flag.Bool("jsondump", false, "enable JSON PCAP files")
+	tcp_dump := flag.Bool("tcpdump", true, "enable JSON PCAP using tcpdump")
+	json_dump := flag.Bool("jsondump", false, "enable JSON PCAP using gopacket")
 	json_log := flag.Bool("jsonlog", false, "enable JSON PCAP to stardard output")
+	ordered := flag.Bool("ordered", false, "write JSON PCAP output as obtained from gopacket")
 
 	flag.Parse()
 
@@ -256,10 +260,10 @@ func main() {
 	xid.Store(uuid.Nil)
 
 	jlog(INFO, &empty_tcpdump_job,
-		fmt.Sprintf("args[use_cron:%t|cron_exp:%s|timezone:%s|timeout:%d|extension:%s|directory:%s|snaplen:%d|filter:%s|interval:%d|tcpdump:%t|jsondump:%t|jsonlog:%t]",
-			*use_cron, *cron_exp, *timezone, *duration, *extension, *directory, *snaplen, *filter, *interval, *tcp_dump, *json_dump, *json_log))
+		fmt.Sprintf("args[use_cron:%t|cron_exp:%s|timezone:%s|timeout:%d|extension:%s|directory:%s|snaplen:%d|filter:%s|interval:%d|tcpdump:%t|jsondump:%t|jsonlog:%t|ordered:%t]",
+			*use_cron, *cron_exp, *timezone, *duration, *extension, *directory, *snaplen, *filter, *interval, *tcp_dump, *json_dump, *json_log, *ordered))
 
-	tasks := createTasks(directory, extension, filter, snaplen, interval, tcp_dump, json_dump, json_log)
+	tasks := createTasks(directory, extension, filter, snaplen, interval, tcp_dump, json_dump, json_log, ordered)
 
 	if len(tasks) == 0 {
 		jlog(ERROR, &empty_tcpdump_job, "no PCAP tasks available")

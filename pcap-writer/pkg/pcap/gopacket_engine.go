@@ -74,14 +74,12 @@ func (p *Pcap) Start(ctx context.Context, writers []PcapWriter) error {
 	if err != nil {
 		return err
 	}
-	defer inactiveHandle.CleanUp()
 
 	if handle, err = inactiveHandle.Activate(); err != nil {
 		p.isActive.Store(false)
 		return fmt.Errorf("failed to activate: %s", err)
 	}
 	p.activeHandle = handle
-	defer handle.Close()
 
 	cfg := *p.config
 
@@ -115,7 +113,12 @@ func (p *Pcap) Start(ctx context.Context, writers []PcapWriter) error {
 	}
 
 	// create new transformer for the specified output format
-	fn, err := transformer.NewTransformer(ctx, ioWriters, &format)
+	var fn transformer.IPcapTransformer
+	if cfg.Ordered {
+		fn, err = transformer.NewOrderedTransformer(ctx, ioWriters, &format)
+	} else {
+		fn, err = transformer.NewTransformer(ctx, ioWriters, &format)
+	}
 	if err != nil {
 		return fmt.Errorf("invalid format: %s", err)
 	}
@@ -131,6 +134,9 @@ func (p *Pcap) Start(ctx context.Context, writers []PcapWriter) error {
 				gopacketLogger.Fatalf("[%d] – failed to translate: %s\n", serial, packet)
 			}
 		case <-ctx.Done():
+			inactiveHandle.CleanUp()
+			handle.Close()
+			fn.WaitDone()
 			// do not close engine's writers until `stop` is called
 			// if the context is done, simply rotate the curren Pcap file
 			// PCAP file rotation includes: flush and sync

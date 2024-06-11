@@ -19,6 +19,7 @@ type PcapConfig struct {
 	Output    string
 	Extension string
 	Interval  int
+	Ordered   bool
 }
 
 type PcapEngine interface {

@@ -1,6 +1,8 @@
 module github.com/gchux/cloud-run-tcpdump/pcap-writer
 
-go 1.20
+go 1.21
+
+toolchain go1.22.4
 
 require (
 	dario.cat/mergo v1.0.0
@@ -9,6 +11,7 @@ require (
 	github.com/google/gopacket v1.1.19
 	github.com/itchyny/timefmt-go v0.1.6
 	github.com/mitchellh/go-ps v1.0.0
+	github.com/panjf2000/ants/v2 v2.9.1
 	github.com/tejzpr/ordered-concurrently/v3 v3.0.1
 )
 
