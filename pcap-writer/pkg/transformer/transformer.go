@@ -14,9 +14,9 @@ import (
 )
 
 type PcapTranslator interface {
-	translate(packet *gopacket.Packet) error
-	next() fmt.Stringer
-	translateEthernetLayer(context.Context, *int64, *layers.Ethernet, fmt.Stringer)
+	translate(*gopacket.Packet) error
+	next(context.Context, *int64) fmt.Stringer
+	translateEthernetLayer(context.Context, *layers.Ethernet, fmt.Stringer)
 }
 
 type PcapTransformer struct {
@@ -54,14 +54,14 @@ func (w pcapWorker) translateEthernetLayer(ctx context.Context, buffer *fmt.Stri
 	ethernetLayer := (*w.packet).Layer(layers.LayerTypeEthernet)
 	if ethernetLayer != nil {
 		ethernetPacket, _ := ethernetLayer.(*layers.Ethernet)
-		w.translator.translateEthernetLayer(ctx, w.serial, ethernetPacket, *buffer)
+		w.translator.translateEthernetLayer(ctx, ethernetPacket, *buffer)
 	}
 }
 
 // The work that needs to be performed
 // The input type should implement the WorkFunction interface
 func (w pcapWorker) Run(ctx context.Context) interface{} {
-	buffer := w.translator.next()
+	buffer := w.translator.next(ctx, w.serial)
 
 	w.translateEthernetLayer(ctx, &buffer)
 
@@ -226,7 +226,7 @@ func newTransformer(ctx context.Context, writers []io.Writer, format *string, pr
 
 	ich := make(chan concurrently.WorkFunction, 10)
 	ochOpts := &concurrently.Options{PoolSize: 10, OutChannelBuffer: 10}
-	och := concurrently.Process(context.Background(), ich, ochOpts)
+	och := concurrently.Process(ctx, ich, ochOpts)
 
 	numWriters := len(writers)
 	// not using `io.MultiWriter` as it writes to all writers sequentially

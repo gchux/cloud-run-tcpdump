@@ -15,17 +15,24 @@ func (t *JsonPcapTranslator) translate(packet *gopacket.Packet) error {
 	return fmt.Errorf("not implemented")
 }
 
-func (t *JsonPcapTranslator) next() fmt.Stringer {
-	return gabs.New()
+// return pointer to `struct` `gabs.Container`
+func (t *JsonPcapTranslator) next(ctx context.Context, serial *int64) fmt.Stringer {
+	json := gabs.New()
+	json.Set(ctx.Value("id"), "ctx")
+	json.Set(*serial, "num")
+	return json
 }
 
-func (t *JsonPcapTranslator) translateEthernetLayer(ctx context.Context, serial *int64, packet *layers.Ethernet, buffer fmt.Stringer) {
-	// fmt.Println(*serial)
-	jsonObj := buffer.(*gabs.Container)
-	jsonObj.Set(*serial, "serial")
-	jsonObj.Set(packet.EthernetType.String(), "L2", "type")
-	jsonObj.Set(packet.SrcMAC.String(), "L2", "src")
-	jsonObj.Set(packet.DstMAC.String(), "L2", "dst")
+func (t *JsonPcapTranslator) asJson(buffer fmt.Stringer) *gabs.Container {
+	return buffer.(*gabs.Container)
+}
+
+func (t *JsonPcapTranslator) translateEthernetLayer(ctx context.Context, packet *layers.Ethernet, buffer fmt.Stringer) {
+	json := t.asJson(buffer)
+
+	json.SetP(packet.EthernetType.String(), "L2.type")
+	json.SetP(packet.SrcMAC.String(), "L2.src")
+	json.SetP(packet.DstMAC.String(), "L2.dst")
 }
 
 func newJsonPcapTranslator() *JsonPcapTranslator {

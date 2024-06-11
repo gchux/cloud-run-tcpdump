@@ -11,8 +11,14 @@ import (
 
 type TextPcapTranslator struct{}
 
-func (t *TextPcapTranslator) next() fmt.Stringer {
-	return new(strings.Builder)
+func (t *TextPcapTranslator) next(ctx context.Context, serial *int64) fmt.Stringer {
+	var text strings.Builder
+	text.WriteString("[ctx=")
+	text.WriteString(fmt.Sprintf("%s", ctx.Value("id")))
+	text.WriteString("|num=")
+	text.WriteString(fmt.Sprintf("%d", serial))
+	text.WriteString("]")
+	return &text
 }
 
 func (t *TextPcapTranslator) translate(packet *gopacket.Packet) error {
@@ -59,9 +65,14 @@ func (t *TextPcapTranslator) translate(packet *gopacket.Packet) error {
 	return nil
 }
 
-func (t *TextPcapTranslator) translateEthernetLayer(ctx context.Context, serial *int64, packet *layers.Ethernet, buffer fmt.Stringer) {
-	text := buffer.(*strings.Builder)
-	text.WriteString(fmt.Sprintf("[%d | L2(", serial))
+func (t *TextPcapTranslator) asText(buffer fmt.Stringer) *strings.Builder {
+	return buffer.(*strings.Builder)
+}
+
+func (t *TextPcapTranslator) translateEthernetLayer(ctx context.Context, packet *layers.Ethernet, buffer fmt.Stringer) {
+	text := t.asText(buffer)
+
+	text.WriteString("[L2(")
 	text.WriteString(packet.EthernetType.String())
 	text.WriteString(") | ")
 	text.WriteString(fmt.Sprintf("src=%s", packet.SrcMAC.String()))
