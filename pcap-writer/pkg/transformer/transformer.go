@@ -286,11 +286,11 @@ func newTransformer(ctx context.Context, writers []io.Writer, format *string, pr
 	if preserveOrder {
 		provideConcurrentQueue(ctx, transformer, numWriters)
 		go transformer.waitForContextDone(ctx)
+		go transformer.produceTranslations(ctx)
 	} else {
 		provideWorkerPools(ctx, transformer, numWriters)
 	}
 
-	go transformer.produceTranslations(ctx)
 	// spawn consumers for all `io.Writer`s
 	// 1 consumer goroutine per `io.Writer`
 	for i := range writeQueues {
