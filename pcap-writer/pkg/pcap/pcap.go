@@ -17,8 +17,8 @@ type PcapConfig struct {
 	Format    string
 	Filter    string
 	Output    string
-	Extension string
 	Interval  int
+	Extension string
 	Ordered   bool
 }
 

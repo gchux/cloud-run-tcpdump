@@ -9,6 +9,7 @@ require (
 	github.com/Jeffail/gabs/v2 v2.7.0
 	github.com/easyCZ/logrotate v0.3.0
 	github.com/google/gopacket v1.1.19
+	github.com/google/uuid v1.6.0
 	github.com/itchyny/timefmt-go v0.1.6
 	github.com/mitchellh/go-ps v1.0.0
 	github.com/panjf2000/ants/v2 v2.9.1

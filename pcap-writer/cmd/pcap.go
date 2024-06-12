@@ -12,6 +12,7 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/google/uuid"
 	"github.com/gchux/cloud-run-tcpdump/pcap-writer/pkg/pcap"
 )
 
@@ -28,18 +29,19 @@ var (
 	interval  = flag.Int("interval", 0, "Set packet capture file rotation interval in seconds")
 	extension = flag.String("ext", "", "Set pcap files extension: pcap, json, txt")
 	stdout    = flag.Bool("stdout", false, "Log translation to standard output; only if 'w' is not 'stdout'")
+	ordered   = flag.Bool("ordered", false, "write translation in the order in which packets were captured")
 )
 
 var logger = log.New(os.Stderr, "[pcap] - ", log.LstdFlags)
 
-func handleError(err error) {
+func handleError(prefix *string, err error) {
 	if errors.Is(err, context.Canceled) {
-		logger.Println("execution cancelled")
+		logger.Printf("%s cancelled\n", *prefix)
 		os.Exit(1)
 	}
 
 	if errors.Is(err, context.DeadlineExceeded) {
-		logger.Println("execution complete")
+		logger.Printf("%s complete\n", *prefix)
 	}
 }
 
@@ -71,6 +73,7 @@ func main() {
 		Output:    *writeTo,
 		Interval:  *interval,
 		Extension: *extension,
+		Ordered:   *ordered,
 	}
 
 	exp, _ := regexp.Compile(fmt.Sprintf("^(?:ipvlan-)?%s.*", *iface))
@@ -86,20 +89,37 @@ func main() {
 		return
 	}
 
-	var pcapWriter pcap.PcapWriter
-	pcapWriter, err = pcap.NewPcapWriter(writeTo, extension, *interval)
-	if err != nil {
-		pcapWriter = os.Stdout
-	}
-
 	var ctx context.Context = context.Background()
 	var cancel context.CancelFunc
+
+	id := fmt.Sprintf("cli/%s", uuid.New())
+	ctx = context.WithValue(ctx, "id", id)
 
 	if *timeout > 0 {
 		ctx, cancel = context.WithTimeout(ctx, time.Duration(*timeout)*time.Second)
 	} else {
 		ctx, cancel = context.WithCancel(ctx)
 	}
+
+	if *writeTo == "stdout" {
+		*stdout = true
+	}
+
+	pcapWriters := []pcap.PcapWriter{}
+
+	if *engine == "google" && *stdout {
+		pcapWriter, err := pcap.NewStdoutPcapWriter()
+		if err == nil {
+			pcapWriters = append(pcapWriters, pcapWriter)
+		}
+	}
+
+	if *engine == "google" && *writeTo != "stdout" {
+		pcapWriter, err := pcap.NewPcapWriter(writeTo, extension, *interval)
+		if err == nil {
+			pcapWriters = append(pcapWriters, pcapWriter)
+		}
+  }
 
 	signals := make(chan os.Signal)
 	signal.Notify(signals, os.Interrupt, syscall.SIGTERM, syscall.SIGINT)
@@ -108,13 +128,12 @@ func main() {
 		cancel()
 	}()
 
-	pcapWriters := []pcap.PcapWriter{pcapWriter}
-	if *stdout && config.Output != "stdout" {
-		pcapWriters = append(pcapWriters, os.Stdout)
-	}
-
+	prefix := fmt.Sprintf("execution '%s'", id)
+	logger.Printf("%s started", prefix)
+	// this is a blocking call
 	err = pcapEngine.Start(ctx, pcapWriters)
 	if err != nil {
-		handleError(err)
+		handleError(&prefix, err)
 	}
+
 }
