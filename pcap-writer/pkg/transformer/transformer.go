@@ -17,6 +17,8 @@ type PcapTranslator interface {
 	translate(*gopacket.Packet) error
 	next(context.Context, *int64) fmt.Stringer
 	translateEthernetLayer(context.Context, *layers.Ethernet, fmt.Stringer)
+	translateIPLayer(context.Context, *layers.IPv4, fmt.Stringer)
+	translateTCPLayer(context.Context, *layers.TCP, fmt.Stringer)
 }
 
 type PcapTransformer struct {
@@ -48,13 +50,38 @@ type pcapWriteTask struct {
 	ctx         context.Context
 	writer      io.Writer
 	translation *fmt.Stringer
+
+}
+
+func (w pcapWorker) pkt() gopacket.Packet {
+	return *w.packet
+}
+
+func (w pcapWorker) asLayer(layer gopacket.LayerType) gopacket.Layer {
+	return w.pkt().Layer(layer)
 }
 
 func (w pcapWorker) translateEthernetLayer(ctx context.Context, buffer *fmt.Stringer) {
-	ethernetLayer := (*w.packet).Layer(layers.LayerTypeEthernet)
+	ethernetLayer := w.asLayer(layers.LayerTypeEthernet)
 	if ethernetLayer != nil {
 		ethernetPacket, _ := ethernetLayer.(*layers.Ethernet)
 		w.translator.translateEthernetLayer(ctx, ethernetPacket, *buffer)
+	}
+}
+
+func (w pcapWorker) translateIPLayer(ctx context.Context, buffer *fmt.Stringer) {
+	ipLayer := w.asLayer(layers.LayerTypeIPv4)
+	if ipLayer != nil {
+		ipPacket, _ := ipLayer.(*layers.IPv4)
+		w.translator.translateIPLayer(ctx, ipPacket, *buffer)
+	}
+}
+
+func (w pcapWorker) translateTCPLayer(ctx context.Context, buffer *fmt.Stringer) {
+	tcpLayer := w.asLayer(layers.LayerTypeTCP)
+	if tcpLayer != nil {
+		tcpPacket, _ := tcpLayer.(*layers.TCP)
+		w.translator.translateTCPLayer(ctx, tcpPacket, *buffer)
 	}
 }
 
@@ -64,6 +91,8 @@ func (w pcapWorker) Run(ctx context.Context) interface{} {
 	buffer := w.translator.next(ctx, w.serial)
 
 	w.translateEthernetLayer(ctx, &buffer)
+	w.translateIPLayer(ctx, &buffer)
+	w.translateTCPLayer(ctx, &buffer)
 
 	// translate more layers
 

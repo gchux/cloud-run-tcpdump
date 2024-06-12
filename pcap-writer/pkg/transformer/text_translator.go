@@ -81,6 +81,12 @@ func (t *TextPcapTranslator) translateEthernetLayer(ctx context.Context, packet 
 	text.WriteString("]")
 }
 
+func (t *TextPcapTranslator) translateIPLayer(ctx context.Context, packet *layers.IPv4, buffer fmt.Stringer) {
+}
+
+func (t *TextPcapTranslator) translateTCPLayer(ctx context.Context, packet *layers.TCP, buffer fmt.Stringer) {
+}
+
 func newTextPcapTranslator() *TextPcapTranslator {
 	return &TextPcapTranslator{}
 }

@@ -27,12 +27,43 @@ func (t *JsonPcapTranslator) asJson(buffer fmt.Stringer) *gabs.Container {
 	return buffer.(*gabs.Container)
 }
 
-func (t *JsonPcapTranslator) translateEthernetLayer(ctx context.Context, packet *layers.Ethernet, buffer fmt.Stringer) {
+func (t *JsonPcapTranslator) translateEthernetLayer(ctx context.Context, eth *layers.Ethernet, buffer fmt.Stringer) {
 	json := t.asJson(buffer)
 
-	json.SetP(packet.EthernetType.String(), "L2.type")
-	json.SetP(packet.SrcMAC.String(), "L2.src")
-	json.SetP(packet.DstMAC.String(), "L2.dst")
+	json.SetP(eth.EthernetType.String(), "L2.type")
+	json.SetP(eth.SrcMAC.String(), "L2.src")
+	json.SetP(eth.DstMAC.String(), "L2.dst")
+}
+
+func (t *JsonPcapTranslator) translateIPLayer(ctx context.Context, ip *layers.IPv4, buffer fmt.Stringer) {
+	json := t.asJson(buffer)
+
+	json.SetP(ip.Protocol.String(), "L3.proto")
+	json.SetP(ip.TTL, "L3.ttl")
+	json.SetP(ip.SrcIP, "L3.src")
+	json.SetP(ip.DstIP, "L3.dst")
+}
+
+func (t *JsonPcapTranslator) translateTCPLayer(ctx context.Context, tcp *layers.TCP, buffer fmt.Stringer) {
+	json := t.asJson(buffer)
+
+	json.SetP(tcp.SrcPort, "L4.src.port")
+	json.SetP(tcp.DstPort, "L4.dst.port")
+	json.SetP(tcp.Seq, "L4.seq")
+	json.SetP(tcp.Ack, "L4.ack")
+	json.SetP(tcp.SYN, "L4.flags.SYN")
+	json.SetP(tcp.ACK, "L4.flags.ACK")
+	json.SetP(tcp.PSH, "L4.flags.PSH")
+	json.SetP(tcp.FIN, "L4.flags.FIN")
+	json.SetP(tcp.RST, "L4.flags.RST")
+
+	if name, ok := layers.TCPPortNames[tcp.SrcPort]; ok {
+		json.SetP(name, "L4.src.proto")
+	}
+
+	if name, ok := layers.TCPPortNames[tcp.DstPort]; ok {
+		json.SetP(name, "L4.dst.proto")
+	}
 }
 
 func newJsonPcapTranslator() *JsonPcapTranslator {

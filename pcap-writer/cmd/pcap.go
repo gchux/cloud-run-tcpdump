@@ -81,6 +81,10 @@ func main() {
 	devs, _ := pcap.FindDevicesByRegex(exp)
 	logger.Printf("device: %v\n", devs)
 
+	if *engine == "tcpdump" && *stdout {
+		*writeTo = "stdout"
+	}
+
 	var err error
 	var pcapEngine pcap.PcapEngine
 
