@@ -41,7 +41,7 @@ func (p *Pcap) newPcap(ctx context.Context) (*gpcap.InactiveHandle, error) {
 		return nil, err
 	}
 
-	if err = inactiveHandle.SetTimeout(time.Millisecond); err != nil {
+	if err = inactiveHandle.SetTimeout(100 * time.Millisecond); err != nil {
 		gopacketLogger.Fatalf("could not set timeout: %v\n", err)
 		return nil, err
 	}
