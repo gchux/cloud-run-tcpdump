@@ -128,13 +128,10 @@ func (t *PcapTransformer) produceTranslations(ctx context.Context) {
 }
 
 func (t *PcapTransformer) consumeTranslations(ctx context.Context, index int) {
-	var writer io.Writer = t.writers[index]
-
 	for translation := range t.writeQueues[index] {
-
 		task := &pcapWriteTask{
 			ctx:         ctx,
-			writer:      writer,
+			writer:      t.writers[index],
 			translation: translation,
 		}
 
