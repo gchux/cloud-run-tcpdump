@@ -16,6 +16,8 @@ import (
 	"github.com/itchyny/timefmt-go"
 )
 
+var pcapWriterLogger = log.New(os.Stderr, "[writer] - ", log.LstdFlags)
+
 type PcapWriter interface {
 	io.Writer
 	io.Closer
@@ -67,27 +69,25 @@ type pcapFileNameProvider struct {
 }
 
 func (p *pcapFileNameProvider) get() string {
-	return timefmt.Format(time.Now().In(p.location), p.template)
+	fileName := timefmt.Format(time.Now().In(p.location), p.template)
+	pcapWriterLogger.Printf("new file: %s\n", fileName)
+	return fileName
 }
 
-func getPcapWriterLocation() *time.Location {
-	timezone, timezoneExists := os.LookupEnv("PCAP_TIMEZONE")
-	if !timezoneExists {
-		return time.UTC
-	}
-	location, err := time.LoadLocation(timezone)
+func getPcapWriterLocationForTimezone(timezone *string) *time.Location {
+	location, err := time.LoadLocation(*timezone)
 	if err != nil {
 		return time.UTC
 	}
 	return location
 }
 
-func getFileNameProvider(template *string) *pcapFileNameProvider {
+func newPcapWriterFileNameProvider(template, timezone *string) *pcapFileNameProvider {
 	fileNameTemplate := *template
 	return &pcapFileNameProvider{
 		directory: filepath.Dir(fileNameTemplate),
 		template:  filepath.Base(fileNameTemplate),
-		location:  getPcapWriterLocation(),
+		location:  getPcapWriterLocationForTimezone(timezone),
 	}
 }
 
@@ -99,18 +99,18 @@ var defaultLogrotateOptions logrotate.Options = logrotate.Options{
 	FileNameFunc:         func() string { return "" },
 }
 
-func getPcapWriterForStdout(logger *log.Logger) (*logrotate.Writer, error) {
+func newPcapWriterForStdout(logger *log.Logger) (*logrotate.Writer, error) {
 	return logrotate.New(logger, defaultLogrotateOptions)
 }
 
-func getPcapWriter(logger *log.Logger, template, extension *string, interval *int) (*logrotate.Writer, error) {
-	var fileMaxLifetime time.Duration = time.Minute
+func newPcapWriter(logger *log.Logger, template, extension, timezone *string, interval *int) (*logrotate.Writer, error) {
+	var fileMaxLifetime time.Duration = 0 // time.Minute
 	if *interval > 0 {
 		fileMaxLifetime = time.Duration(*interval) * time.Second
 	}
 
 	fileNameTemplate := fmt.Sprintf("%s.%s", *template, *extension)
-	fileNameProvider := getFileNameProvider(&fileNameTemplate)
+	fileNameProvider := newPcapWriterFileNameProvider(&fileNameTemplate, timezone)
 
 	options := logrotate.Options{
 		Directory:       fileNameProvider.directory,
@@ -130,10 +130,10 @@ func isStdoutPcapWriter(template, extension *string, interval *int) bool {
 }
 
 func NewStdoutPcapWriter() (PcapWriter, error) {
-	return NewPcapWriter(nil, nil, 0)
+	return NewPcapWriter(nil, nil, nil, 0)
 }
 
-func NewPcapWriter(template, extension *string, interval int) (PcapWriter, error) {
+func NewPcapWriter(template, extension, timezone *string, interval int) (PcapWriter, error) {
 	isStdOutOrErr := isStdoutPcapWriter(template, extension, &interval)
 	logger := log.New(os.Stderr, "[pcap/rotate] - ", log.LstdFlags)
 
@@ -142,9 +142,9 @@ func NewPcapWriter(template, extension *string, interval int) (PcapWriter, error
 
 	if isStdOutOrErr {
 		// Using `logrotate` to make `os.Stdout` safe to be concurrently written by PCAP engines
-		writer, err = getPcapWriterForStdout(logger)
+		writer, err = newPcapWriterForStdout(logger)
 	} else {
-		writer, err = getPcapWriter(logger, template, extension, &interval)
+		writer, err = newPcapWriter(logger, template, extension, timezone, &interval)
 	}
 
 	if err != nil {

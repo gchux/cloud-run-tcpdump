@@ -161,7 +161,7 @@ func newPcapConfig(iface, format, output, extension, filter string, snaplen, int
 	}
 }
 
-func createTasks(directory, extension, filter *string, snaplen, interval *int, tcpdump, jsondump, jsonlog, ordered *bool) []*pcapTask {
+func createTasks(timezone, directory, extension, filter *string, snaplen, interval *int, tcpdump, jsondump, jsonlog, ordered *bool) []*pcapTask {
 	tasks := []*pcapTask{}
 
 	ifaceRegexp, _ := regexp.Compile(fmt.Sprintf("^(?:ipvlan-)?%s\\d.*", devicePattern))
@@ -210,7 +210,7 @@ func createTasks(directory, extension, filter *string, snaplen, interval *int, t
 
 		// writing JSON PCAP file is only enabled if `jsondump` is enabled
 		if *jsondump {
-			jsondumpWriter, writerErr = pcap.NewPcapWriter(&output, &jsondumpCfg.Extension, *interval)
+			jsondumpWriter, writerErr = pcap.NewPcapWriter(&output, &jsondumpCfg.Extension, timezone, *interval)
 		}
 
 		if writerErr != nil {
@@ -263,7 +263,7 @@ func main() {
 		fmt.Sprintf("args[use_cron:%t|cron_exp:%s|timezone:%s|timeout:%d|extension:%s|directory:%s|snaplen:%d|filter:%s|interval:%d|tcpdump:%t|jsondump:%t|jsonlog:%t|ordered:%t]",
 			*use_cron, *cron_exp, *timezone, *duration, *extension, *directory, *snaplen, *filter, *interval, *tcp_dump, *json_dump, *json_log, *ordered))
 
-	tasks := createTasks(directory, extension, filter, snaplen, interval, tcp_dump, json_dump, json_log, ordered)
+	tasks := createTasks(timezone, directory, extension, filter, snaplen, interval, tcp_dump, json_dump, json_log, ordered)
 
 	if len(tasks) == 0 {
 		jlog(ERROR, &empty_tcpdump_job, "no PCAP tasks available")

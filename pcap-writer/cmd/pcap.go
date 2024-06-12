@@ -12,24 +12,25 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/google/uuid"
 	"github.com/gchux/cloud-run-tcpdump/pcap-writer/pkg/pcap"
+	"github.com/google/uuid"
 )
 
 var (
 	engine    = flag.String("eng", "google", "Engine to use for capturing packets: tcpdump or google")
 	iface     = flag.String("i", "any", "Interface to read packets from")
 	snaplen   = flag.Int("s", 0, "Snap length (number of bytes max to read per packet")
-	writeTo   = flag.String("w", "stdout", "Where to write packet capture to: stdout, stderr, file_path")
+	writeTo   = flag.String("w", "stdout", "Where to write packet capture to: stdout or a file path")
 	tsType    = flag.String("ts_type", "", "Type of timestamps to use")
 	promisc   = flag.Bool("promisc", true, "Set promiscuous mode")
 	format    = flag.String("fmt", "default", "Set the output format: default, text or json")
-	filter    = flag.String("bpf", "", "Set BPF filter to be used")
+	filter    = flag.String("filter", "", "Set BPF filter to be used")
 	timeout   = flag.Int("timeout", 0, "Set packet capturing total duration in seconds")
 	interval  = flag.Int("interval", 0, "Set packet capture file rotation interval in seconds")
 	extension = flag.String("ext", "", "Set pcap files extension: pcap, json, txt")
 	stdout    = flag.Bool("stdout", false, "Log translation to standard output; only if 'w' is not 'stdout'")
 	ordered   = flag.Bool("ordered", false, "write translation in the order in which packets were captured")
+	timezone  = flag.String("tz", "UTC", "timezone to be used by PCAP files template")
 )
 
 var logger = log.New(os.Stderr, "[pcap] - ", log.LstdFlags)
@@ -115,11 +116,11 @@ func main() {
 	}
 
 	if *engine == "google" && *writeTo != "stdout" {
-		pcapWriter, err := pcap.NewPcapWriter(writeTo, extension, *interval)
+		pcapWriter, err := pcap.NewPcapWriter(writeTo, extension, timezone, *interval)
 		if err == nil {
 			pcapWriters = append(pcapWriters, pcapWriter)
 		}
-  }
+	}
 
 	signals := make(chan os.Signal)
 	signal.Notify(signals, os.Interrupt, syscall.SIGTERM, syscall.SIGINT)
@@ -135,5 +136,4 @@ func main() {
 	if err != nil {
 		handleError(&prefix, err)
 	}
-
 }
