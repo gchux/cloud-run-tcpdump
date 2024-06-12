@@ -50,7 +50,6 @@ type pcapWriteTask struct {
 	ctx         context.Context
 	writer      io.Writer
 	translation *fmt.Stringer
-
 }
 
 func (w pcapWorker) pkt() gopacket.Packet {
