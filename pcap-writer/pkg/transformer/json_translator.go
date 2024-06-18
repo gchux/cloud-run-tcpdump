@@ -18,8 +18,10 @@ func (t *JsonPcapTranslator) translate(packet *gopacket.Packet) error {
 // return pointer to `struct` `gabs.Container`
 func (t *JsonPcapTranslator) next(ctx context.Context, serial *int64) fmt.Stringer {
 	json := gabs.New()
+
 	json.Set(ctx.Value("id"), "ctx")
 	json.Set(*serial, "num")
+
 	return json
 }
 
@@ -40,6 +42,7 @@ func (t *JsonPcapTranslator) translateEthernetLayer(ctx context.Context, eth *la
 func (t *JsonPcapTranslator) translateIPv4Layer(ctx context.Context, ip *layers.IPv4) fmt.Stringer {
 	json := gabs.New()
 
+	// [TODO]: complete IPv4 translation
 	json.SetP(ip.Protocol.String(), "L3.proto")
 	json.SetP(ip.TTL, "L3.ttl")
 	json.SetP(ip.SrcIP, "L3.src")
@@ -48,9 +51,26 @@ func (t *JsonPcapTranslator) translateIPv4Layer(ctx context.Context, ip *layers.
 	return json
 }
 
+func (t *JsonPcapTranslator) translateIPv6Layer(ctx context.Context, ip *layers.IPv6) fmt.Stringer {
+	json := gabs.New()
+
+	// [TODO]: implement IPv6 translation
+
+	return json
+}
+
+func (t *JsonPcapTranslator) translateUDPLayer(ctx context.Context, tcp *layers.UDP) fmt.Stringer {
+	json := gabs.New()
+
+	// [TODO]: implement UDP translation
+
+	return json
+}
+
 func (t *JsonPcapTranslator) translateTCPLayer(ctx context.Context, tcp *layers.TCP) fmt.Stringer {
 	json := gabs.New()
 
+	// [TODO]: complete TCP translation
 	json.SetP(tcp.SrcPort, "L4.src.port")
 	json.SetP(tcp.DstPort, "L4.dst.port")
 	json.SetP(tcp.Seq, "L4.seq")

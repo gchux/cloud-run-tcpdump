@@ -21,6 +21,8 @@ type (
 		next(context.Context, *int64) fmt.Stringer
 		translateEthernetLayer(context.Context, *layers.Ethernet) fmt.Stringer
 		translateIPv4Layer(context.Context, *layers.IPv4) fmt.Stringer
+		translateIPv6Layer(context.Context, *layers.IPv6) fmt.Stringer
+		translateUDPLayer(context.Context, *layers.UDP) fmt.Stringer
 		translateTCPLayer(context.Context, *layers.TCP) fmt.Stringer
 		merge(context.Context, fmt.Stringer, fmt.Stringer) (fmt.Stringer, error)
 	}
@@ -96,6 +98,24 @@ func (w pcapWorker) translateIPv4Layer(ctx context.Context) fmt.Stringer {
 	return nil
 }
 
+func (w pcapWorker) translateIPv6Layer(ctx context.Context) fmt.Stringer {
+	ipLayer := w.asLayer(layers.LayerTypeIPv6)
+	if ipLayer != nil {
+		ipPacket, _ := ipLayer.(*layers.IPv6)
+		return w.translator.translateIPv6Layer(ctx, ipPacket)
+	}
+	return nil
+}
+
+func (w pcapWorker) translateUDPLayer(ctx context.Context) fmt.Stringer {
+	tcpLayer := w.asLayer(layers.LayerTypeUDP)
+	if tcpLayer != nil {
+		tcpPacket, _ := tcpLayer.(*layers.UDP)
+		return w.translator.translateUDPLayer(ctx, tcpPacket)
+	}
+	return nil
+}
+
 func (w pcapWorker) translateTCPLayer(ctx context.Context) fmt.Stringer {
 	tcpLayer := w.asLayer(layers.LayerTypeTCP)
 	if tcpLayer != nil {
@@ -113,6 +133,8 @@ func (w pcapWorker) Run(ctx context.Context) interface{} {
 	translators := []packetLayerTranslator{
 		w.translateEthernetLayer,
 		w.translateIPv4Layer,
+		w.translateIPv6Layer,
+		w.translateUDPLayer,
 		w.translateTCPLayer,
 	}
 
@@ -134,7 +156,10 @@ func (w pcapWorker) Run(ctx context.Context) interface{} {
 	}()
 
 	for translation := range translations {
-		buffer, _ = w.translator.merge(ctx, buffer, translation)
+		// translations are `nil` is layer is not available
+		if translation != nil {
+			buffer, _ = w.translator.merge(ctx, buffer, translation)
+		}
 	}
 
 	// translate more layers
