@@ -25,7 +25,7 @@ func (t *JsonPcapTranslator) next(ctx context.Context, serial *int64) fmt.String
 	return json
 }
 
-func (t *JsonPcapTranslator) asJson(buffer fmt.Stringer) *gabs.Container {
+func (t *JsonPcapTranslator) asTranslation(buffer fmt.Stringer) *gabs.Container {
 	return buffer.(*gabs.Container)
 }
 
@@ -93,7 +93,7 @@ func (t *JsonPcapTranslator) translateTCPLayer(ctx context.Context, tcp *layers.
 }
 
 func (t *JsonPcapTranslator) merge(ctx context.Context, tgt fmt.Stringer, src fmt.Stringer) (fmt.Stringer, error) {
-	return tgt, t.asJson(tgt).Merge(t.asJson(src))
+	return tgt, t.asTranslation(tgt).Merge(t.asTranslation(src))
 }
 
 func newJsonPcapTranslator() *JsonPcapTranslator {
