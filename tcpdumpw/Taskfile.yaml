@@ -4,24 +4,30 @@ dotenv: ['.env']
 
 tasks:
 
-  format:
+  docker-build:
+    cmds:
+      - >-
+        docker buildx build --no-cache --file=Dockerfile
+        --output={{.USER_WORKING_DIR}}/bin --target=releaser {{.USER_WORKING_DIR}}
+
+  go-fmt:
     cmds:
       - gofumpt -l -w .
 
-  assets:
+  go-gen:
     cmds:
       - go generate ./...
 
   build:
     dotenv: ['.env']
     cmds:
-      - task: format
-      - task: assets
+      - task: go-fmt
+      - task: go-gen
       - >-
         go build
-        -o $PCAP_BIN_NAME
+        -o bin/$TCPDUMPW_BIN_NAME
         {{if .VERBOSE}}-v -a{{end}}
-        cmd/pcap.go
+        main.go
 
   dist:
     cmds:

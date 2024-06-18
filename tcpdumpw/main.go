@@ -14,7 +14,7 @@ import (
 	"time"
 	_ "time/tzdata"
 
-	"github.com/gchux/cloud-run-tcpdump/pcap-writer/pkg/pcap"
+	"github.com/gchux/pcap-cli/pkg/pcap"
 	"github.com/go-co-op/gocron/v2"
 	"github.com/google/uuid"
 	"github.com/lrita/cmap"
