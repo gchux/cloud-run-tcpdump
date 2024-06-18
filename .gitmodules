@@ -2,4 +2,4 @@
 	path = pcap-cli
 	url = https://github.com/gchux/pcap-cli.git
 	branch = main
-	ignore = all
+	ignore = none
