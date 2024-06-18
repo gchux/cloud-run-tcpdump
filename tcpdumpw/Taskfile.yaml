@@ -18,9 +18,14 @@ tasks:
     cmds:
       - go generate ./...
 
-  build:
+  update-gitmodules:
+    cmds:
+      - git submodule update --init --no-fetch --recursive --remote --single-branch ../pcap-cli
+
+  local-build:
     dotenv: ['.env']
     cmds:
+      - task: update-gitmodules
       - task: go-fmt
       - task: go-gen
       - >-
@@ -29,7 +34,7 @@ tasks:
         {{if .VERBOSE}}-v -a{{end}}
         main.go
 
-  dist:
+  local-dist:
     cmds:
       - task: build
         vars:
