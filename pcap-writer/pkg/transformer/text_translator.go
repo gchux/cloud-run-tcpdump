@@ -11,11 +11,13 @@ import (
 )
 
 type (
-	TextPcapTranslator  struct{}
+	TextPcapTranslator struct{}
+
 	textPcapTranslation struct {
 		index   int // allows layers to be sorted on `String()` invocation
 		builder *strings.Builder
 	}
+
 	textPcapTranslations map[int]*textPcapTranslation
 )
 
@@ -96,11 +98,14 @@ func (t *TextPcapTranslator) merge(ctx context.Context, tgt fmt.Stringer, src fm
 	srcTranslation := t.asTranslation(src)
 	switch typedObj := tgt.(type) {
 	case *textPcapTranslations:
+		// add reference to another layer translation
 		(*typedObj)[srcTranslation.index] = srcTranslation
 	case *textPcapTranslation:
-		// 1st `merge` invocation might not actually be a container
+		// 1st `merge` invocation might not actually be a map (`textPcapTranslations`)
+		// do not be confused: this is a `map[int]*textPcapTranslation`
 		tgt = &textPcapTranslations{
-			typedObj.index: typedObj, srcTranslation.index: srcTranslation,
+			typedObj.index:       typedObj,
+			srcTranslation.index: srcTranslation,
 		}
 	}
 	return tgt, nil
