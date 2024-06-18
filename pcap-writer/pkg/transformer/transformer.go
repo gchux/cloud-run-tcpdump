@@ -13,43 +13,61 @@ import (
 	concurrently "github.com/tejzpr/ordered-concurrently/v3"
 )
 
-type PcapTranslator interface {
-	translate(*gopacket.Packet) error
-	next(context.Context, *int64) fmt.Stringer
-	translateEthernetLayer(context.Context, *layers.Ethernet, fmt.Stringer)
-	translateIPLayer(context.Context, *layers.IPv4, fmt.Stringer)
-	translateTCPLayer(context.Context, *layers.TCP, fmt.Stringer)
-}
+type (
+	PcapTranslatorFmt int
 
-type PcapTransformer struct {
-	ctx            context.Context
-	ich            chan concurrently.WorkFunction
-	och            <-chan concurrently.OrderedOutput
-	translator     PcapTranslator
-	translatorPool *ants.PoolWithFunc
-	writerPool     *ants.MultiPoolWithFunc
-	writers        []io.Writer
-	writeQueues    []chan *fmt.Stringer
-	wg             sync.WaitGroup
-	preserveOrder  bool
-}
+	PcapTranslator interface {
+		translate(*gopacket.Packet) error
+		next(context.Context, *int64) fmt.Stringer
+		translateEthernetLayer(context.Context, *layers.Ethernet) fmt.Stringer
+		translateIPv4Layer(context.Context, *layers.IPv4) fmt.Stringer
+		translateTCPLayer(context.Context, *layers.TCP) fmt.Stringer
+		merge(context.Context, fmt.Stringer, fmt.Stringer) (fmt.Stringer, error)
+	}
 
-type IPcapTransformer interface {
-	WaitDone()
-	Apply(context.Context, *gopacket.Packet, *int64) error
-}
+	PcapTransformer struct {
+		ctx            context.Context
+		ich            chan concurrently.WorkFunction
+		och            <-chan concurrently.OrderedOutput
+		translator     PcapTranslator
+		translatorPool *ants.PoolWithFunc
+		writerPool     *ants.MultiPoolWithFunc
+		writers        []io.Writer
+		writeQueues    []chan *fmt.Stringer
+		wg             *sync.WaitGroup
+		preserveOrder  bool
+	}
 
-// Create a type based on your input to the work function
-type pcapWorker struct {
-	serial     *int64
-	packet     *gopacket.Packet
-	translator PcapTranslator
-}
+	IPcapTransformer interface {
+		WaitDone()
+		Apply(context.Context, *gopacket.Packet, *int64) error
+	}
 
-type pcapWriteTask struct {
-	ctx         context.Context
-	writer      io.Writer
-	translation *fmt.Stringer
+	// Create a type based on your input to the work function
+	pcapWorker struct {
+		serial     *int64
+		packet     *gopacket.Packet
+		translator PcapTranslator
+	}
+
+	pcapWriteTask struct {
+		ctx         context.Context
+		writer      io.Writer
+		translation *fmt.Stringer
+	}
+
+	packetLayerTranslator func(context.Context) fmt.Stringer
+)
+
+//go:generate stringer -type=PcapTranslatorFmt
+const (
+	TEXT PcapTranslatorFmt = iota
+	JSON
+)
+
+var pcapTranslatorFmts = map[string]PcapTranslatorFmt{
+	"json": JSON,
+	"text": TEXT,
 }
 
 func (w pcapWorker) pkt() gopacket.Packet {
@@ -60,28 +78,31 @@ func (w pcapWorker) asLayer(layer gopacket.LayerType) gopacket.Layer {
 	return w.pkt().Layer(layer)
 }
 
-func (w pcapWorker) translateEthernetLayer(ctx context.Context, buffer *fmt.Stringer) {
+func (w pcapWorker) translateEthernetLayer(ctx context.Context) fmt.Stringer {
 	ethernetLayer := w.asLayer(layers.LayerTypeEthernet)
 	if ethernetLayer != nil {
 		ethernetPacket, _ := ethernetLayer.(*layers.Ethernet)
-		w.translator.translateEthernetLayer(ctx, ethernetPacket, *buffer)
+		return w.translator.translateEthernetLayer(ctx, ethernetPacket)
 	}
+	return nil
 }
 
-func (w pcapWorker) translateIPLayer(ctx context.Context, buffer *fmt.Stringer) {
+func (w pcapWorker) translateIPv4Layer(ctx context.Context) fmt.Stringer {
 	ipLayer := w.asLayer(layers.LayerTypeIPv4)
 	if ipLayer != nil {
 		ipPacket, _ := ipLayer.(*layers.IPv4)
-		w.translator.translateIPLayer(ctx, ipPacket, *buffer)
+		return w.translator.translateIPv4Layer(ctx, ipPacket)
 	}
+	return nil
 }
 
-func (w pcapWorker) translateTCPLayer(ctx context.Context, buffer *fmt.Stringer) {
+func (w pcapWorker) translateTCPLayer(ctx context.Context) fmt.Stringer {
 	tcpLayer := w.asLayer(layers.LayerTypeTCP)
 	if tcpLayer != nil {
 		tcpPacket, _ := tcpLayer.(*layers.TCP)
-		w.translator.translateTCPLayer(ctx, tcpPacket, *buffer)
+		return w.translator.translateTCPLayer(ctx, tcpPacket)
 	}
+	return nil
 }
 
 // The work that needs to be performed
@@ -89,10 +110,32 @@ func (w pcapWorker) translateTCPLayer(ctx context.Context, buffer *fmt.Stringer)
 func (w pcapWorker) Run(ctx context.Context) interface{} {
 	buffer := w.translator.next(ctx, w.serial)
 
-	// [TODO]: translate layers concurrently
-	w.translateEthernetLayer(ctx, &buffer)
-	w.translateIPLayer(ctx, &buffer)
-	w.translateTCPLayer(ctx, &buffer)
+	translators := []packetLayerTranslator{
+		w.translateEthernetLayer,
+		w.translateIPv4Layer,
+		w.translateTCPLayer,
+	}
+
+	numLayers := len(translators)
+	translations := make(chan fmt.Stringer, numLayers)
+	var wg sync.WaitGroup
+	wg.Add(numLayers) // number of layers to be translated
+
+	for _, translator := range translators {
+		go func(translator packetLayerTranslator) {
+			translations <- translator(ctx)
+			wg.Done()
+		}(translator)
+	}
+
+	go func() {
+		wg.Wait()
+		close(translations)
+	}()
+
+	for translation := range translations {
+		buffer, _ = w.translator.merge(ctx, buffer, translation)
+	}
 
 	// translate more layers
 
@@ -203,17 +246,17 @@ func writeTranslation(ctx context.Context, transformer *PcapTransformer, task in
 	transformer.writeTranslation(ctx, task.(*pcapWriteTask))
 }
 
-func newTranslator(format *string) (PcapTranslator, error) {
-	switch f := *format; f {
-	case "json":
+func newTranslator(format PcapTranslatorFmt) (PcapTranslator, error) {
+	switch format {
+	case JSON:
 		return newJsonPcapTranslator(), nil
-	case "text":
+	case TEXT:
 		return newTextPcapTranslator(), nil
 	default:
 		/* no-go */
 	}
 
-	return nil, fmt.Errorf("translator unavailable: %s", *format)
+	return nil, fmt.Errorf("translator unavailable: %v", format)
 }
 
 // if preserving packet capture order is not required, translations may be done concurrently
@@ -256,7 +299,8 @@ func provideConcurrentQueue(ctx context.Context, transformer *PcapTransformer, n
 
 // transformers get instances of `io.Writer` instead of `pcap.PcapWriter` to prevent closing.
 func newTransformer(ctx context.Context, writers []io.Writer, format *string, preserveOrder bool) (IPcapTransformer, error) {
-	translator, err := newTranslator(format)
+	pcapFmt := pcapTranslatorFmts[*format]
+	translator, err := newTranslator(pcapFmt)
 	if err != nil {
 		return nil, err
 	}
@@ -273,7 +317,7 @@ func newTransformer(ctx context.Context, writers []io.Writer, format *string, pr
 	// same transformer, multiple strategies
 	// via multiple translator implementations
 	transformer := &PcapTransformer{
-		wg:            wg,
+		wg:            &wg,
 		ctx:           ctx,
 		translator:    translator,
 		writers:       writers,

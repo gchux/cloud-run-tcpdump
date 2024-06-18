@@ -109,7 +109,7 @@ func (p *Pcap) Start(ctx context.Context, writers []PcapWriter) error {
 	ioWriters := make([]io.Writer, len(writers))
 	for i, writer := range writers {
 		ioWriters[i] = writer
-		pcapWriters = append(pcapWriters, writer.(PcapWriter))
+		pcapWriters = append(pcapWriters, writer)
 	}
 
 	// create new transformer for the specified output format
@@ -153,7 +153,6 @@ func (p *Pcap) Start(ctx context.Context, writers []PcapWriter) error {
 func NewPcap(config *PcapConfig) (PcapEngine, error) {
 	var isActive atomic.Bool
 	isActive.Store(false)
-
 	pcap := Pcap{config: config, isActive: &isActive}
 	return &pcap, nil
 }

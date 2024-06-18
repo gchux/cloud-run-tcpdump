@@ -18,21 +18,23 @@ import (
 
 var pcapWriterLogger = log.New(os.Stderr, "[writer] - ", log.LstdFlags)
 
-type PcapWriter interface {
-	io.Writer
-	io.Closer
-	rotate()
-}
+type (
+	PcapWriter interface {
+		io.Writer
+		io.Closer
+		rotate()
+	}
 
-type pcapWriter struct {
-	*logrotate.Writer
-	v                reflect.Value
-	osFile           reflect.Value
-	osFileSync       reflect.Value
-	bufioWriter      reflect.Value
-	bufioWriterFlush reflect.Value
-	isStdOutOrErr    bool
-}
+	pcapWriter struct {
+		*logrotate.Writer
+		v                reflect.Value
+		osFile           reflect.Value
+		osFileSync       reflect.Value
+		bufioWriter      reflect.Value
+		bufioWriterFlush reflect.Value
+		isStdOutOrErr    bool
+	}
+)
 
 //go:linkname rotate github.com/easyCZ/logrotate.(*Writer).rotate
 func rotate(w *logrotate.Writer)
