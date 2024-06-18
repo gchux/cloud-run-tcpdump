@@ -1,0 +1,30 @@
+version: '3'
+
+dotenv: ['.env']
+
+tasks:
+
+  format:
+    cmds:
+      - gofumpt -l -w .
+
+  assets:
+    cmds:
+      - go generate ./...
+
+  build:
+    dotenv: ['.env']
+    cmds:
+      - task: format
+      - task: assets
+      - >-
+        go build
+        -o $PCAP_BIN_NAME
+        {{if .VERBOSE}}-v -a{{end}}
+        cmd/pcap.go
+
+  dist:
+    cmds:
+      - task: build
+        vars:
+          VERBOSE: true
