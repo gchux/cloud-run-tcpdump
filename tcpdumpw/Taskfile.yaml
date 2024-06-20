@@ -20,7 +20,7 @@ tasks:
 
   update-gitmodules:
     cmds:
-      - git submodule update --init --no-fetch --recursive --remote --single-branch ../pcap-cli
+      - git submodule update --recursive --remote ../pcap-cli
 
   local-build:
     dotenv: ['.env']

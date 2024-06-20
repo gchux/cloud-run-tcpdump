@@ -8,4 +8,12 @@ done
 
 set -x
 
-exec env /bin/pcap_fsn -src_dir=${PCAP_TMP} -gcs_dir=${PCAP_DIR} -pcap_ext=${PCAP_EXT} -gzip=${PCAP_GZIP}
+if [ "$PCAP_JSONDUMP" = true ] ; then
+    PCAP_EXT="${PCAP_EXT},json"
+fi
+
+exec env /bin/pcap_fsn \
+    -src_dir=${PCAP_TMP} \
+    -gcs_dir=${PCAP_DIR} \
+    -pcap_ext="${PCAP_EXT}" \
+    -gzip=${PCAP_GZIP}

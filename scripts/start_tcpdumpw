@@ -14,8 +14,12 @@ exec env /bin/tcpdumpw \
     -cron_exp="${PCAP_CRON_EXP:--}" \
     -timezone="${PCAP_TZ:-UTC}" \
     -timeout=${PCAP_TO:-0} \
-    -extension=${PCAP_EXT:-pcap} \
+    -interval=${PCAP_SECS} \
     -directory=${PCAP_TMP:-/pcap-tmp} \
+    -extension=${PCAP_EXT:-pcap} \
+    -tcpdump=${PCAP_TCPDUMP:-true} \
+    -jsondump=${PCAP_JSONDUMP:-false} \
+    -jsonlog=${PCAP_JSONDUMP_LOG:-false} \
+    -ordered=${PCAP_ORDERED:-false} \
     -snaplen=${PCAP_SNAPLEN:-0} \
-    -filter="${PCAP_FILTER}" \
-    -rotate_s=${PCAP_SECS}
+    -filter="${PCAP_FILTER}"
