@@ -119,7 +119,7 @@ This approach assumes that Artifact Registry is available in `PROJECT_ID`.
      export PCAP_SNAPSHOT_LENGTH='...'   # see: https://www.tcpdump.org/manpages/tcpdump.1.html#:~:text=%2D%2D-,snapshot%2Dlength,-%3Dsnaplen ; default is `0` bytes
      export PCAP_TCPDUMP=true
      export PCAP_JSON=true
-     export PCAP_JSON_LOG=true           # set to `true` for witting structured logs into Cloud Logging
+     export PCAP_JSON_LOG=true           # set to `true` for writting structured logs into Cloud Logging
      export PCAP_ORDERED=false           
      ```
 
@@ -149,7 +149,7 @@ The `tcpdump` sidecar accespts the following environment variables:
 
 -    `PCAP_IFACE`: (STRING, **required**) a prefix for the interface to perform packet capturing on; i/e: `eth`, `ens`... 
 
-     > Notice that `PCAP_IFACE` is not the full interface name nor a regex or a pattern, but a prefix; so `eth0` becomes `eth`, and `ens4` becomes `ens`
+     >    Notice that `PCAP_IFACE` is not the full interface name nor a regex or a pattern, but a prefix; so `eth0` becomes `eth`, and `ens4` becomes `ens`
 
 -    `GCS_BUCKET`: (STRING, **required**) the name of the Cloud Storage Bucket to be mounted and used to store **PCAP files**.
 
@@ -171,11 +171,11 @@ The `tcpdump` sidecar accespts the following environment variables:
 
 -    `PCAP_JSON_LOG`: (BOOLEAN, *optional*) wheter to write `JSON` translated packets into `stdout` ( `PCAP_JSON` may not be enabled ); default value is `false`.
 
-     > This is useful when [`Wireshark`](https://www.wireshark.org/) is not available, as it makes it possible to have all captured packets available in [**Cloud Logging**](https://cloud.google.com/logging/docs/structured-logging)
+     >    This is useful when [`Wireshark`](https://www.wireshark.org/) is not available, as it makes it possible to have all captured packets available in [**Cloud Logging**](https://cloud.google.com/logging/docs/structured-logging)
 
 -    `PCAP_ORDERED`: (BOOLEAN, *optional*) when `PCAP_JSON` or `PCAP_JSON_LOG` are enabled, wheter to print packets in captured order ( if set to `false`, packet will be written as fast as possible ); default value is `false`.
 
-     > In order to improve performance, packets are translated and written concurrently; when `PCAP_ORDERED` is enabled, only translations are performed concurrently. Enabling `PCAP_ORDERED` may cause packet capturing to be slower, so it is recommended to keep it disabled as all translated packets have a `pcap.num` property to assert order.
+     >    In order to improve performance, packets are translated and written concurrently; when `PCAP_ORDERED` is enabled, only translations are performed concurrently. Enabling `PCAP_ORDERED` may cause packet capturing to be slower, so it is recommended to keep it disabled as all translated packets have a `pcap.num` property to assert order.
 
 ### Advanced configurations
 
@@ -191,7 +191,7 @@ More advanced use cases may benefit from scheduling `tcpdump` executions. Use th
 
 -    `PCAP_TIMEOUT_SECS`: (NUMBER, *optional*) seconds `tcpdump` execution will last; devault value is `0`: execution will not be stopped.
 
-     - **NOTE**: if `PCAP_USE_CRON` is set to `true`, you should set this value to less than the time in seconds between scheduled executions.
+     >    **NOTE**: if `PCAP_USE_CRON` is set to `true`, you should set this value to less than the time in seconds between scheduled executions.
 
 ## Considerations
 
@@ -234,6 +234,14 @@ More advanced use cases may benefit from scheduling `tcpdump` executions. Use th
 -    While it is true that [Cloud Storage volume mounts](https://cloud.google.com/run/docs/configuring/services/cloud-storage-volume-mounts) is available in prevew, GCSFuse is used instead to minimize the required configuration to deploy a Revision instrumented with the `tcpdump` sidecar.
 
      >    **NOTE***: this is also the reason why the base image for the `tcpdump` sidecar is `ubuntu:22.04` and not something lighter like `alpine`. GCSFuse pre-built packages are only available for Debian and RPM based distributions.
+
+-    While setting `PCAP_ORDER` to `true` is a good alternative for low traffic scenarios, it is recommended setting it to `false` for most other cases since the level of concurrency is reduced (only for translations) in order to guarantee packet order.
+
+     >    **NOTE**: packet order means the order in which the underlying engine ([`gopacket`](https://github.com/google/gopacket)) delivers captured packets.
+
+-    Use scheduled packet capturing ( `PCAP_USE_CRON` and other advanced flags ) if you don't need to capture packets 100% of insntance runtime as it will reduce the number of `PCAP files`.
+
+     >    **NOTE**: this sidecar is subject to [Cloud Run CPU allocation](https://cloud.google.com/run/docs/configuring/cpu-allocation) configuration; so if the revision is configured to only allocate CPU during request processing, then CPU will also be throttled for the sidecar. This means that when CPU is only allocated during requesr processing, no packet capturing will happen outside request processing. 
 
 ## Download and Merge all PCAP Files
 
