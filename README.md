@@ -239,7 +239,7 @@ More advanced use cases may benefit from scheduling `tcpdump` executions. Use th
 
      >    **NOTE**: packet order means the order in which the underlying engine ([`gopacket`](https://github.com/google/gopacket)) delivers captured packets.
 
--    Use scheduled packet capturing ( `PCAP_USE_CRON` and other advanced flags ) if you don't need to capture packets 100% of insntance runtime as it will reduce the number of `PCAP files`.
+-    Use scheduled packet capturing ( `PCAP_USE_CRON` and other advanced flags ) if you don't need to capture packets 100% of instance runtime as it will reduce the number of `PCAP files`.
 
      >    **NOTE**: this sidecar is subject to [Cloud Run CPU allocation](https://cloud.google.com/run/docs/configuring/cpu-allocation) configuration; so if the revision is configured to only allocate CPU during request processing, then CPU will also be throttled for the sidecar. This means that when CPU is only allocated during requesr processing, no packet capturing will happen outside request processing. 
 
