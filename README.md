@@ -20,6 +20,7 @@ The sidecar approach enables decoupling from the main –*ingress*– container 
 
 - [Ubuntu 22.04 official docker image](https://hub.docker.com/_/ubuntu)
 - [`tcpdump`](https://www.tcpdump.org/) installed from [Ubuntu's official repository](https://packages.ubuntu.com/search?keywords=tcpdump) to perform packet captures.
+- [`gopacket`](https://github.com/google/gopacket/tree/master) to perform packet capturing and getting a handle on all captured packets.
 - [GCSFuse](https://github.com/GoogleCloudPlatform/gcsfuse) to mount the GCS Bucket used to export **PCAP files**.
 - [Go Supervisord](https://github.com/ochinchina/supervisord) to orchestrate startup processes execution.
 - [fsnotify](https://github.com/fsnotify/fsnotify) to listen for filesystem events.
