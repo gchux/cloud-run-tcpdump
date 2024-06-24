@@ -8,7 +8,7 @@ Captured packets are optionally translated to JSON and written into [`Cloud Logg
 
 ## Motivation
 
-During development, it is often useful to perform packet capture to troubleshoot specific network related issues/conditions.
+During development, it is often useful to perform packet capturing to troubleshoot specific/gnarly network related conditions/issues.
 
 This container image is to be used as a sidecar of the Cloud Run main –*ingress*– container in order to perform a packet capture using `tcpdump` within the same network namespace.
 
@@ -41,7 +41,7 @@ The sidecar uses:
 
 -    **GCSFuse** to mount a Cloud Storage Bucket to move compressed **PCAP files** into.
 
-     > **PCAP files** are moved from the sidecar's in-memory filesystem into the mounted Cloud Storage Bucket.
+     >    **PCAP files** are moved from the sidecar's in-memory filesystem into the mounted Cloud Storage Bucket.
 
 ## How to build the sidecar
 
@@ -53,7 +53,7 @@ The sidecar uses:
      git clone --depth=1 --branch=main --single-branch https://github.com/gchux/cloud-run-tcpdump.git
      ```
 
-     > If you prefer to let Cloud Build perform all the tasks, go directly to build [using Cloud Build](#using-cloud-build)
+     >    If you prefer to let Cloud Build perform all the tasks, go directly to build [using Cloud Build](#using-cloud-build)
 
 3. Move into the repository local directory: `cd cloud-run-tcpdump`.
 
@@ -98,7 +98,7 @@ This approach assumes that Artifact Registry is available in `PROJECT_ID`.
        --substitutions="_REPO_LOCATION=${REPO_LOCATION},_REPO_NAME=${REPO_NAME},_IMAGE_NAME=${IMAGE_NAME},_IMAGE_VERSION=${IMAGE_VERSION}' $(pwd)
      ```
 
-> See the full list of available flags for `gcloud builds submit`: https://cloud.google.com/sdk/gcloud/reference/builds/submit
+>    See the full list of available flags for `gcloud builds submit`: https://cloud.google.com/sdk/gcloud/reference/builds/submit
 
 ## How to deploy to Cloud Run
 
@@ -142,7 +142,7 @@ This approach assumes that Artifact Registry is available in `PROJECT_ID`.
        --depends-on=${INGRESS_CONTAINER_NAME}-1
      ```
 
-> See the full list of available falgs for `gcloud run deploy` at https://cloud.google.com/sdk/gcloud/reference/run/deploy
+>    See the full list of available falgs for `gcloud run deploy` at https://cloud.google.com/sdk/gcloud/reference/run/deploy
 
 ## Available configurations
 
