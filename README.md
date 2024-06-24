@@ -104,18 +104,23 @@ This approach assumes that Artifact Registry is available in `PROJECT_ID`.
 1. Define environment variables to be used during Cloud Run service deployment:
 
      ```sh
-     export SERVICE_NAME='...'
-     export SERVICE_REGION='...' # GCP Region: https://cloud.google.com/about/locations
-     export SERVICE_ACCOUNT='...' # Cloud Run service's identity
+     export SERVICE_NAME='...'           # Cloud Run or App Engine Flex service name
+     export SERVICE_REGION='...'         # GCP Region: https://cloud.google.com/about/locations
+     export SERVICE_ACCOUNT='...'        # Cloud Run service's identity
      export INGRESS_CONTAINER_NAME='...'
      export INGRESS_IMAGE_URI='...'
      export INGRESS_PORT='...'
      export TCPDUMP_SIDECAR_NAME='...'
-     export TCPDUMP_IMAGE_URI='...' # same as the one used to build the sidecar container image
-     export GCS_BUCKET='...'        # the name of the Cloud Storage Bucket to mount
-     export PCAP_FILTER='...'       # the BPF filter to use; i/e: `tcp port 443`
-     export PCAP_ROTATE_SECS='...'  # how often to rocate PCAP files; default is `60` seconds 
-     export PCAP_SNAPSHOT_LENGTH='...'  # see: https://www.tcpdump.org/manpages/tcpdump.1.html#:~:text=%2D%2D-,snapshot%2Dlength,-%3Dsnaplen ; default is `0` bytes
+     export TCPDUMP_IMAGE_URI='...'      # same as the one used to build the sidecar container image
+     export PCAP_IFACE='eth'             # prefix of the interface in which packets should be captured from
+     export GCS_BUCKET='...'             # the name of the Cloud Storage Bucket to mount
+     export PCAP_FILTER='...'            # the BPF filter to use; i/e: `tcp port 443`
+     export PCAP_ROTATE_SECS='...'       # how often to rocate PCAP files; default is `60` seconds 
+     export PCAP_SNAPSHOT_LENGTH='...'   # see: https://www.tcpdump.org/manpages/tcpdump.1.html#:~:text=%2D%2D-,snapshot%2Dlength,-%3Dsnaplen ; default is `0` bytes
+     export PCAP_TCPDUMP=true
+     export PCAP_JSON=true
+     export PCAP_JSON=true
+     export PCAP_ORDERED=false           
      ```
 
 2. Deploy the Cloud Run service including the `tcpdump` sidecar:
@@ -132,7 +137,7 @@ This approach assumes that Artifact Registry is available in `PROJECT_ID`.
        --container=${TCPDUMP_SIDECAR_NAME}-1 \
        --image=${TCPDUMP_IMAGE_URI} \
        --cpu=1 --memory=1G \
-       --set-env-vars="GCS_BUCKET=${GCS_BUCKET},PCAP_FILTER=${PCAP_FILTER},PCAP_ROTATE_SECS=${PCAP_ROTATE_SECS},PCAP_SNAPSHOT_LENGTH=${PCAP_SNAPSHOT_LENGTH}" \
+       --set-env-vars="PCAP_IFACE=${PCAP_IFACE},GCS_BUCKET=${GCS_BUCKET},PCAP_FILTER=${PCAP_FILTER},PCAP_ROTATE_SECS=${PCAP_ROTATE_SECS},PCAP_SNAPSHOT_LENGTH=${PCAP_SNAPSHOT_LENGTH}" \
        --depends-on=${INGRESS_CONTAINER_NAME}-1
      ```
 
@@ -160,15 +165,15 @@ The `tcpdump` sidecar accespts the following environment variables:
 
 -    `PCAP_COMPRESS`: (BOOLEAN, *optional*) whether to compress **PCAP files** or not; default value is `true`.
 
--    `PCAP_TCPDUMP`: (BOOLEAN, *required*) wheter to use `tcpdump` or not ( `tcpdump` will generate pcap files, if not `PCAP_JSON` must be enabled ).
+-    `PCAP_TCPDUMP`: (BOOLEAN, *required*) wheter to use `tcpdump` or not ( `tcpdump` will generate pcap files, if not `PCAP_JSON` must be enabled ); default valie is `true`.
 
--    `PCAP_JSON`: (BOOLEAN, *optional*) wheter to use `JSON` to dump packets or not ( `PCAP_TCPDUMP` and `PCAP_JSON` maybe be both `true` to generate both: `.pcap` and `.json` files ).
+-    `PCAP_JSON`: (BOOLEAN, *optional*) wheter to use `JSON` to dump packets or not ( `PCAP_TCPDUMP` and `PCAP_JSON` maybe be both `true` to generate both: `.pcap` and `.json` files ); default value is `false`.
 
--    `PCAP_JSON_LOG`: (BOOLEAN, *optional*) wheter to write `JSON` translated packets into `stdout` ( `PCAP_JSON` may not be enabled ).
+-    `PCAP_JSON_LOG`: (BOOLEAN, *optional*) wheter to write `JSON` translated packets into `stdout` ( `PCAP_JSON` may not be enabled ); default value is `false`.
 
      > This is useful when [`Wireshark`](https://www.wireshark.org/) is not available, as it makes it possible to have all captured packets available in [**Cloud Logging**](https://cloud.google.com/logging/docs/structured-logging)
 
--    `PCAP_ORDERED`: (BOOLEAN, *optional*) when `PCAP_JSON` or `PCAP_JSON_LOG` are enabled, wheter to print packets in captured order ( if set to `false`, packet will be written as fast as possible ).
+-    `PCAP_ORDERED`: (BOOLEAN, *optional*) when `PCAP_JSON` or `PCAP_JSON_LOG` are enabled, wheter to print packets in captured order ( if set to `false`, packet will be written as fast as possible ); default value is `false`.
 
      > In order to improve performance, packets are translated and written concurrently; when `PCAP_ORDERED` is enabled, only translations are performed concurrently. Enabling `PCAP_ORDERED` may cause packet capturing to be slower, so it is recommended to keep it disabled as all translated packets have a `pcap.num` property to assert order.
 
