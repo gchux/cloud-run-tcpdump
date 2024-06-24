@@ -279,7 +279,7 @@ More advanced use cases may benefit from scheduling `tcpdump` executions. Use th
 
     -    for `.pcap` files: `mergecap -w full.pcap -F pcap ./*_part_*.pcap`
 
-    -    for `.json` files: `cat *_part_*.json | jq -crMs 'sort_by(.pcap.date)'` > pcap.json
+    -    for `.json` files: `cat *_part_*.json | jq -crMs 'sort_by(.pcap.date)' > pcap.json`
 
     >    See `mergecap` docs: https://www.wireshark.org/docs/man-pages/mergecap.html
 
