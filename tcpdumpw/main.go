@@ -5,7 +5,6 @@ import (
 	"encoding/json"
 	"flag"
 	"fmt"
-	"net"
 	"os"
 	"os/signal"
 	"regexp"
@@ -100,7 +99,7 @@ func jlog(severity jLogLevel, job *tcpdumpJob, message string) {
 
 	jEntry, err := json.Marshal(entry)
 	if err != nil {
-		fmt.Errorf("[ERROR] - %s\n", err)
+		fmt.Fprintf(os.Stderr, "[ERROR] - %s\n", err)
 		return
 	}
 	fmt.Println(string(jEntry))
@@ -165,7 +164,9 @@ func tcpdump(timeout time.Duration) error {
 	}
 
 	// enable PCAP tasks with context awareness
-	ctx := context.WithValue(job.ctx, "id", fmt.Sprintf("%s/%s", jobID.String(), exeID))
+	id := fmt.Sprintf("%s/%s", jobID.String(), exeID)
+	ctx := context.WithValue(job.ctx, pcap.PcapContextID, id)
+	ctx = context.WithValue(ctx, pcap.PcapContextLogName, fmt.Sprintf("projects/%s/pcaps/%s", os.Getenv("PROJECT_ID"), id))
 
 	return start(ctx, timeout, job.tasks)
 }
@@ -187,18 +188,13 @@ func newPcapConfig(iface, format, output, extension, filter string, snaplen, int
 func createTasks(timezone, directory, extension, filter *string, snaplen, interval *int, tcpdump, jsondump, jsonlog, ordered *bool) []*pcapTask {
 	tasks := []*pcapTask{}
 
-	ifaceRegexp := regexp.MustCompile(fmt.Sprintf("^(?:ipvlan-)?%s\\d+.*", ifacePattern))
+	ifaceRegexp := regexp.MustCompile(fmt.Sprintf("^(?:(?:lo$)|(?:(?:ipvlan-)?%s\\d+.*$))", ifacePattern))
 	devices, _ := pcap.FindDevicesByRegex(ifaceRegexp)
 
-	for _, iface := range devices {
+	for _, device := range devices {
 
-		netIface, err := net.InterfaceByName(iface)
-		if err != nil {
-			jlog(ERROR, &emptyTcpdumpJob, fmt.Sprintf("invalid iface: %s (%s)", iface, err))
-			continue
-		}
-
-		iface = netIface.Name
+		netIface := device.NetInterface
+		iface := netIface.Name
 		ifaceAndIndex := fmt.Sprintf("%d/%s", netIface.Index, iface)
 
 		jlog(INFO, &emptyTcpdumpJob, fmt.Sprintf("configuring PCAP for iface: %s", ifaceAndIndex))
@@ -301,6 +297,9 @@ func main() {
 
 	// Skip scheduling, execute `tcpdump`
 	if !*use_cron {
+		id := uuid.New().String()
+		ctx = context.WithValue(ctx, pcap.PcapContextID, id)
+		ctx = context.WithValue(ctx, pcap.PcapContextLogName, fmt.Sprintf("projects/%s/pcaps/%s", os.Getenv("PROJECT_ID"), id))
 		start(ctx, timeout, tasks)
 		return
 	}
