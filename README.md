@@ -119,7 +119,7 @@ This approach assumes that Artifact Registry is available in `PROJECT_ID`.
      export PCAP_SNAPSHOT_LENGTH='...'   # see: https://www.tcpdump.org/manpages/tcpdump.1.html#:~:text=%2D%2D-,snapshot%2Dlength,-%3Dsnaplen ; default is `0` bytes
      export PCAP_TCPDUMP=true
      export PCAP_JSON=true
-     export PCAP_JSON=true
+     export PCAP_JSON_LOG=true           # set to `true` for witting structured logs into Cloud Logging
      export PCAP_ORDERED=false           
      ```
 
