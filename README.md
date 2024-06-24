@@ -36,7 +36,7 @@ The sidecar uses:
 
 -    [**`tcpdumpw`**](tcpdumpw/main.go) to execute `tcpdump` and generate **PCAP files**; optionally, schedule recurring `tcpdump` executions.
 
--    [**`pcap-fsnotify`**](pcap-fsnotify/main.go) to listen for newly created **PCAP files**, optionally compress PCAPs ( _**recommended**_ ) and move them into Cloud Storate mount point.
+-    [**`pcap-fsnotify`**](pcap-fsnotify/main.go) to listen for newly created **PCAP files**, optionally compress PCAPs ( _**recommended**_ ) and move them into Cloud Storage mount point.
 
 -    **GCSFuse** to mount a Cloud Storage Bucket to move compressed **PCAP files** into.
 
