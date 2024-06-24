@@ -168,7 +168,9 @@ The `tcpdump` sidecar accespts the following environment variables:
 
 -    `PCAP_TCPDUMP`: (BOOLEAN, *required*) wheter to use `tcpdump` or not ( `tcpdump` will generate pcap files, if not `PCAP_JSON` must be enabled ); default valie is `true`.
 
--    `PCAP_JSON`: (BOOLEAN, *optional*) wheter to use `JSON` to dump packets or not ( `PCAP_TCPDUMP` and `PCAP_JSON` maybe be both `true` to generate both: `.pcap` and `.json` files ); default value is `false`.
+-    `PCAP_JSON`: (BOOLEAN, *optional*) wheter to use `JSON` to dump packets or not ; default value is `false`.
+
+     >    `PCAP_TCPDUMP` and `PCAP_JSON` maybe be both `true` in order to generate both: `.pcap` and `.json` **PCAP files**.
 
 -    `PCAP_JSON_LOG`: (BOOLEAN, *optional*) wheter to write `JSON` translated packets into `stdout` ( `PCAP_JSON` may not be enabled ); default value is `false`.
 
@@ -273,6 +275,13 @@ More advanced use cases may benefit from scheduling `tcpdump` executions. Use th
 
 3. If `PCAP_COMPRESS` was set to `true`, uncompress all the **PCAP files**: `gunzip ./*.gz`
 
-4. Merge all **PCAP files** into a single file: `mergecap -w full.pcap -F pcap ./*.pcap`
+4. Merge all **PCAP files** into a single file: 
 
-     > See `mergecap` docs: https://www.wireshark.org/docs/man-pages/mergecap.html
+    -    for `.pcap` files: `mergecap -w full.pcap -F pcap ./*_part_*.pcap`
+
+    -    for `.json` files: `cat *_part_*.json | jq -crMs 'sort_by(.pcap.date)'` > pcap.json
+
+    >    See `mergecap` docs: https://www.wireshark.org/docs/man-pages/mergecap.html
+
+    >    See `jq` docs: https://jqlang.github.io/jq/manual/ , JSON pcaps are particularly useful when Wireshark is not available.
+
