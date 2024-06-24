@@ -20,9 +20,9 @@ The sidecar approach enables decoupling from the main –*ingress*– container 
 - [Go Supervisord](https://github.com/ochinchina/supervisord) to orchestrate startup processes execution.
 - [fsnotify](https://github.com/fsnotify/fsnotify) to listen for filesystem events.
 - [gocron](https://github.com/go-co-op/gocron) to schedule execution of `tcpdump`.
-- Uber's [zap](https://github.com/uber-go/zap) blazing fast, structured, leveled logging for Go.
 - [Docker Engine](https://docs.docker.com/engine/) and [Docker CLI](https://docs.docker.com/engine/reference/commandline/cli/) to build the sidecar container image.
 - [Cloud Run](https://cloud.google.com/run/docs/deploying#multicontainer-yaml) **gen2** [execution environment](https://cloud.google.com/run/docs/about-execution-environments).
+- [pcap-cli](https://github.com/gchux/pcap-cli/tree/main) to perform packet capturing and translations to JSON.
 
 ## How it works
 
@@ -138,6 +138,10 @@ This approach assumes that Artifact Registry is available in `PROJECT_ID`.
 
 The `tcpdump` sidecar accespts the following environment variables:
 
+-    `PCAP_IFACE`: (STRING, **required**) a prefix for the interface to perform packet capturing on; i/e: `eth`, `ens`... 
+
+     > Notice that `PCAP_IFACE` is not the full interface name nor a regex or a pattern, but a prefix; so `eth0` becomes `eth`, and `ens4` becomes `ens`
+
 -    `GCS_BUCKET`: (STRING, **required**) the name of the Cloud Storage Bucket to be mounted and used to store **PCAP files**.
 
 -    `PCAP_FILTER`: (STRING, **required**) standard `tcpdump` bpf filters to scope the packet capture to specific traffic; i/e: `tcp`.
@@ -151,6 +155,18 @@ The `tcpdump` sidecar accespts the following environment variables:
 -    `PCAP_FILE_EXT`: (STRING, *optional*) extension to be used for **PCAP files**; default value is `pcap`.
 
 -    `PCAP_COMPRESS`: (BOOLEAN, *optional*) whether to compress **PCAP files** or not; default value is `true`.
+
+-    `PCAP_TCPDUMP`: (BOOLEAN, *required*) wheter to use `tcpdump` or not ( `tcpdump` will generate pcap files, if not `PCAP_JSON` must be enabled ).
+
+-    `PCAP_JSON`: (BOOLEAN, *optional*) wheter to use `JSON` to dump packets or not ( `PCAP_TCPDUMP` and `PCAP_JSON` maybe be both `true` to generate both: `.pcap` and `.json` files ).
+
+-    `PCAP_JSON_LOG`: (BOOLEAN, *optional*) wheter to write `JSON` translated packets into `stdout` ( `PCAP_JSON` may not be enabled ).
+
+     > This is useful when [`Wireshark`](https://www.wireshark.org/) is not available, as it makes it possible to have all captured packets available in [**Cloud Logging**](https://cloud.google.com/logging/docs/structured-logging)
+
+-    `PCAP_ORDERED`: (BOOLEAN, *optional*) when `PCAP_JSON` or `PCAP_JSON_LOG` are enabled, wheter to print packets in captured order ( if set to `false`, packet will be written as fast as possible ).
+
+     > In order to improve performance, packets are translated and written concurrently; when `PCAP_ORDERED` is enabled, only translations are performed concurrently. Enabling `PCAP_ORDERED` may cause packet capturing to be slower, so it is recommended to keep it disabled as all translated packets have a `pcap.num` property to assert order.
 
 ### Advanced configurations
 
