@@ -285,3 +285,50 @@ More advanced use cases may benefit from scheduling `tcpdump` executions. Use th
 
     >    See `jq` docs: https://jqlang.github.io/jq/manual/ , JSON pcaps are particularly useful when Wireshark is not available.
 
+---
+
+# Using with App Engine Flexible
+
+1.    Enable debug mode an App Engine Flexible instance: https://cloud.google.com/appengine/docs/flexible/debugging-an-instance#enabling_and_disabling_debug_mode
+
+2.    Connect to the instnace using SSH: https://cloud.google.com/appengine/docs/flexible/debugging-an-instance#connecting_to_the_instance
+
+3.    Escalate privileges; execute: `sudo su`
+
+4.    Create the following `env` file named `pcap.env`, use the following sample to define sidecar variables:
+
+       ```sh
+       # $ touch pcap.env
+       PCAP_GAE=true
+       GCS_BUCKET=the-gcs-bucket         # the name of the Cloud Storage bucket used to store PCAP files
+       GCS_MOUNT=/gae/pcap               # where to mount the Cloud Storage bucket within the container FS
+       PCAP_IFACE=eth                    # network interface prefix
+       PCAP_FILTER=tcp or udp            # BPF filter to scope packet capturing to specific network traffic
+       PCAP_SNAPSHOT_LENGTH=0
+       PCAP_USE_CRON=false               # do not schedule packet capturing
+       PCAP_TIMEZONE=America/Los_Angeles
+       PCAP_TIMEOUT_SECS=60
+       PCAP_ROTATE_SECS=30
+       PCAP_TCPDUMP=true
+       PCAP_JSON=true
+       PCAP_JSON_LOG=false               # NOT necessary, packet translations are streamed directly to Cloud Logging
+       PCAP_ORDERED=false
+       ```
+
+5.    Create a directory to store the **PCAP files** in the host filesystem: `mkdir gae`
+
+6.    Pull the sidecar container image: `docker --config=/etc/docker pull ${TCPDUMP_IMAGE_URI}`
+
+7.    Run the sidecar to start capturing packets:
+
+      ```sh
+      docker run --rm --name=pcap -it \
+        --cpus=1 --cpuset-cpus=1 \
+        --privileged --network=host \
+        --env-file=./pcap.env \
+        -v ./gae:/gae -v /var/lAog:/var/log \
+        -v /var/run/docker.sock:/docker.sock \
+        ${TCPDUMP_IMAGE_URI} nsenter -t 1 -u -n -i /init \
+        >/var/log/app_engine/app/STDOUT_pcap.log \
+        2>/var/log/app_engine/app/STDERR_pcap.log
+      ```
