@@ -134,7 +134,7 @@ func main() {
 
 	ext := strings.Join(strings.Split(*pcap_ext, ","), "|")
 	fmt.Println(ext)
-	pcapDotExt := regexp.MustCompile(`^` + *src_dir + `/part__(\d+?)_(.+?)__\d{8}_\d{6}\.(` + ext + `)$`)
+	pcapDotExt := regexp.MustCompile(`^` + *src_dir + `/part__(\d+?)_(.+?)__\d{8}T\d{6}\.(` + ext + `)$`)
 
 	args := map[string]interface{}{
 		"src_dir":  *src_dir,

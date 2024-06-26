@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"flag"
 	"fmt"
 	"os"
@@ -23,31 +24,36 @@ import (
 func UNUSED(x ...interface{}) {}
 
 var (
-	use_cron  = flag.Bool("use_cron", false, "perform packet capture at specific intervals")
-	cron_exp  = flag.String("cron_exp", "", "stardard cron expression; i/e: '1 * * * *'")
-	timezone  = flag.String("timezone", "UTC", "TimeZone to be used to schedule packet captures")
-	duration  = flag.Int("timeout", 0, "perform packet capture during this mount of seconds")
-	interval  = flag.Int("interval", 60, "seconds after which tcpdump rotates PCAP files")
-	snaplen   = flag.Int("snaplen", 0, "bytes to be captured from each packet")
-	filter    = flag.String("filter", "", "BPF filter to be used for capturing packets")
-	extension = flag.String("extension", "pcap", "extension to be used for tcpdump PCAP files")
-	directory = flag.String("directory", "", "directory where PCAP files will be stored")
-	tcp_dump  = flag.Bool("tcpdump", true, "enable JSON PCAP using tcpdump")
-	json_dump = flag.Bool("jsondump", false, "enable JSON PCAP using gopacket")
-	json_log  = flag.Bool("jsonlog", false, "enable JSON PCAP to stardard output")
-	ordered   = flag.Bool("ordered", false, "write JSON PCAP output as obtained from gopacket")
+	use_cron   = flag.Bool("use_cron", false, "perform packet capture at specific intervals")
+	cron_exp   = flag.String("cron_exp", "", "stardard cron expression; i/e: '1 * * * *'")
+	timezone   = flag.String("timezone", "UTC", "TimeZone to be used to schedule packet captures")
+	duration   = flag.Int("timeout", 0, "perform packet capture during this mount of seconds")
+	interval   = flag.Int("interval", 60, "seconds after which tcpdump rotates PCAP files")
+	snaplen    = flag.Int("snaplen", 0, "bytes to be captured from each packet")
+	filter     = flag.String("filter", "", "BPF filter to be used for capturing packets")
+	extension  = flag.String("extension", "pcap", "extension to be used for tcpdump PCAP files")
+	directory  = flag.String("directory", "", "directory where PCAP files will be stored")
+	tcp_dump   = flag.Bool("tcpdump", true, "enable JSON PCAP using tcpdump")
+	json_dump  = flag.Bool("jsondump", false, "enable JSON PCAP using gopacket")
+	json_log   = flag.Bool("jsonlog", false, "enable JSON PCAP to stardard output")
+	ordered    = flag.Bool("ordered", false, "write JSON PCAP output as obtained from gopacket")
+	gcp_gae    = flag.Bool("gae", false, "enable GAE Flex environment configuration")
+	pcap_iface = flag.String("iface", "", "prefix to scan for network interfaces to capture from")
 )
 
 var (
-	ifacePattern string = os.Getenv("PCAP_IFACE")
-	sidecar      string = os.Getenv("APP_SIDECAR")
-	module       string = os.Getenv("PROC_NAME")
+	ifacePrefix string = os.Getenv("PCAP_IFACE")
+	sidecar     string = os.Getenv("APP_SIDECAR")
+	module      string = os.Getenv("PROC_NAME")
 )
 
 var (
 	jobs            cmap.Map[uuid.UUID, *tcpdumpJob]
 	jid, xid        atomic.Value
 	emptyTcpdumpJob = tcpdumpJob{Jid: uuid.Nil.String()}
+
+	jsonLogDisabledErr = errors.New("STDOUT JSON log disabled")
+	gaeDisabledErr     = errors.New("GAE JSON log disabled")
 )
 
 type (
@@ -82,6 +88,11 @@ const (
 	INFO  jLogLevel = "INFO"
 	ERROR jLogLevel = "ERROR"
 	FATAL jLogLevel = "FATAL"
+
+	fileNamePattern = "%d_%s__%%Y%%m%%dT%%H%%M%%S"
+	runFileOutput   = `%s/part__` + fileNamePattern
+	gaeFileOutput   = `/var/log/app_engine/app/app_pcap__` + fileNamePattern
+	gaeJSONInterval = 0 // disable time based file rotation
 )
 
 func jlog(severity jLogLevel, job *tcpdumpJob, message string) {
@@ -124,10 +135,10 @@ func beforeTcpdump(id uuid.UUID, name string) {
 	xid.Store(uuid.New())
 }
 
-func start(ctx context.Context, timeout time.Duration, tasks []*pcapTask) error {
+func start(ctx context.Context, timeout time.Duration, job *tcpdumpJob) error {
 	// all PCAP engines are context aware
 	var wg sync.WaitGroup
-	wg.Add(len(tasks))
+	wg.Add(len(job.tasks))
 
 	var cancel context.CancelFunc
 	if timeout > 0*time.Second {
@@ -135,10 +146,13 @@ func start(ctx context.Context, timeout time.Duration, tasks []*pcapTask) error 
 		defer cancel()
 	}
 
-	for _, task := range tasks {
+	for _, task := range job.tasks {
 		go func(ctx context.Context, t *pcapTask) {
 			defer wg.Done()
-			t.engine.Start(ctx, t.writers)
+			err := t.engine.Start(ctx, t.writers)
+			if err != nil {
+				jlog(INFO, job, fmt.Sprintf("pcap execution stopped: %s", err))
+			}
 		}(ctx, task)
 	}
 
@@ -166,12 +180,16 @@ func tcpdump(timeout time.Duration) error {
 	// enable PCAP tasks with context awareness
 	id := fmt.Sprintf("%s/%s", jobID.String(), exeID)
 	ctx := context.WithValue(job.ctx, pcap.PcapContextID, id)
-	ctx = context.WithValue(ctx, pcap.PcapContextLogName, fmt.Sprintf("projects/%s/pcaps/%s", os.Getenv("PROJECT_ID"), id))
+	ctx = context.WithValue(ctx, pcap.PcapContextLogName,
+		fmt.Sprintf("projects/%s/pcaps/%s", os.Getenv("PROJECT_ID"), id))
 
-	return start(ctx, timeout, job.tasks)
+	return start(ctx, timeout, job)
 }
 
-func newPcapConfig(iface, format, output, extension, filter string, snaplen, interval int) *pcap.PcapConfig {
+func newPcapConfig(
+	iface, format, output, extension, filter string,
+	snaplen, interval int,
+) *pcap.PcapConfig {
 	return &pcap.PcapConfig{
 		Promisc:   true,
 		Iface:     iface,
@@ -185,10 +203,14 @@ func newPcapConfig(iface, format, output, extension, filter string, snaplen, int
 	}
 }
 
-func createTasks(timezone, directory, extension, filter *string, snaplen, interval *int, tcpdump, jsondump, jsonlog, ordered *bool) []*pcapTask {
+func createTasks(
+	timezone, directory, extension, filter *string,
+	snaplen, interval *int,
+	tcpdump, jsondump, jsonlog, ordered, gcp_gae *bool,
+) []*pcapTask {
 	tasks := []*pcapTask{}
 
-	ifaceRegexp := regexp.MustCompile(fmt.Sprintf("^(?:(?:lo$)|(?:(?:ipvlan-)?%s\\d+.*$))", ifacePattern))
+	ifaceRegexp := regexp.MustCompile(fmt.Sprintf("^(?:(?:lo$)|(?:(?:ipvlan-)?%s\\d+.*$))", ifacePrefix))
 	devices, _ := pcap.FindDevicesByRegex(ifaceRegexp)
 
 	for _, device := range devices {
@@ -199,7 +221,7 @@ func createTasks(timezone, directory, extension, filter *string, snaplen, interv
 
 		jlog(INFO, &emptyTcpdumpJob, fmt.Sprintf("configuring PCAP for iface: %s", ifaceAndIndex))
 
-		output := fmt.Sprintf("%s/part__%d_%s__%%Y%%m%%d_%%H%%M%%S", *directory, netIface.Index, netIface.Name)
+		output := fmt.Sprintf(runFileOutput, *directory, netIface.Index, netIface.Name)
 
 		tcpdumpCfg := newPcapConfig(iface, "pcap", output, *extension, *filter, *snaplen, *interval)
 		jsondumpCfg := newPcapConfig(iface, "json", output, "json", *filter, *snaplen, *interval)
@@ -207,7 +229,7 @@ func createTasks(timezone, directory, extension, filter *string, snaplen, interv
 		// premature optimization is the root of all evil
 		var engineErr, writerErr error = nil, nil
 		var tcpdumpEngine, jsondumpEngine pcap.PcapEngine = nil, nil
-		var jsondumpWriter, jsonlogWriter pcap.PcapWriter = nil, nil // `tcpdump` does not use custom writers
+		var jsondumpWriter, jsonlogWriter, gaejsonWriter pcap.PcapWriter = nil, nil, nil // `tcpdump` does not use custom writers
 
 		if *tcpdump {
 			tcpdumpEngine, engineErr = pcap.NewTcpdump(tcpdumpCfg)
@@ -222,13 +244,12 @@ func createTasks(timezone, directory, extension, filter *string, snaplen, interv
 			jlog(ERROR, &emptyTcpdumpJob, fmt.Sprintf("tcpdump task creation failed: %s (%s)", ifaceAndIndex, engineErr))
 		}
 
-		// skip JSON setup if no form fo JSON support is enabled
-		if !*jsondump || !*jsonlog {
+		// skip JSON setup if JSON pcap is disabled
+		if !*jsondump {
 			continue
 		}
 
 		engineErr = nil
-
 		jsondumpCfg.Ordered = *ordered
 
 		// some form of JSON packet capturing is enabled
@@ -244,25 +265,38 @@ func createTasks(timezone, directory, extension, filter *string, snaplen, interv
 		if *jsondump {
 			jsondumpWriter, writerErr = pcap.NewPcapWriter(&output, &jsondumpCfg.Extension, timezone, *interval)
 		}
-
 		if writerErr != nil {
 			jlog(ERROR, &emptyTcpdumpJob, fmt.Sprintf("jsondump file writer creation failed: %s (%s)", ifaceAndIndex, writerErr))
 		} else {
 			pcapWriters = append(pcapWriters, jsondumpWriter)
-		}
-
-		if !*jsonlog && writerErr == nil {
-			tasks = append(tasks, &pcapTask{jsondumpEngine, pcapWriters})
-			continue
+			jlog(INFO, &emptyTcpdumpJob, fmt.Sprintf("configured JSON '%s' writer for iface: %s", output, ifaceAndIndex))
 		}
 
 		// add `/dev/stdout` as an additional PCAP writer
-		jsonlogWriter, writerErr = pcap.NewStdoutPcapWriter()
+		if *jsonlog {
+			jsonlogWriter, writerErr = pcap.NewStdoutPcapWriter()
+		} else {
+			jsonlogWriter, writerErr = nil, jsonLogDisabledErr
+		}
 		if writerErr != nil {
 			jlog(ERROR, &emptyTcpdumpJob, fmt.Sprintf("jsondump stdout writer creation failed: %s (%s)", ifaceAndIndex, writerErr))
-			continue
 		} else {
 			pcapWriters = append(pcapWriters, jsonlogWriter)
+			jlog(INFO, &emptyTcpdumpJob, fmt.Sprintf("configured JSON 'stdout' writer for iface: %s", ifaceAndIndex))
+		}
+
+		gaeOutput := ""
+		if *gcp_gae {
+			gaeOutput = fmt.Sprintf(gaeFileOutput, netIface.Index, netIface.Name)
+			gaejsonWriter, writerErr = pcap.NewPcapWriter(&gaeOutput, &jsondumpCfg.Extension, timezone, gaeJSONInterval)
+		} else {
+			gaejsonWriter, writerErr = nil, gaeDisabledErr
+		}
+		if writerErr != nil {
+			jlog(ERROR, &emptyTcpdumpJob, fmt.Sprintf("jsondump GAE json writer creation failed: %s (%s)", ifaceAndIndex, gaeDisabledErr))
+		} else if gaejsonWriter != nil {
+			pcapWriters = append(pcapWriters, gaejsonWriter)
+			jlog(INFO, &emptyTcpdumpJob, fmt.Sprintf("configured GAE JSON '%s' writer for iface: %s", gaeOutput, ifaceAndIndex))
 		}
 
 		jlog(INFO, &emptyTcpdumpJob, fmt.Sprintf("configured 'jsondump' for iface: %s", ifaceAndIndex))
@@ -282,7 +316,7 @@ func main() {
 		fmt.Sprintf("args[use_cron:%t|cron_exp:%s|timezone:%s|timeout:%d|extension:%s|directory:%s|snaplen:%d|filter:%s|interval:%d|tcpdump:%t|jsondump:%t|jsonlog:%t|ordered:%t]",
 			*use_cron, *cron_exp, *timezone, *duration, *extension, *directory, *snaplen, *filter, *interval, *tcp_dump, *json_dump, *json_log, *ordered))
 
-	tasks := createTasks(timezone, directory, extension, filter, snaplen, interval, tcp_dump, json_dump, json_log, ordered)
+	tasks := createTasks(timezone, directory, extension, filter, snaplen, interval, tcp_dump, json_dump, json_log, ordered, gcp_gae)
 
 	if len(tasks) == 0 {
 		jlog(ERROR, &emptyTcpdumpJob, "no PCAP tasks available")
@@ -299,8 +333,10 @@ func main() {
 	if !*use_cron {
 		id := uuid.New().String()
 		ctx = context.WithValue(ctx, pcap.PcapContextID, id)
-		ctx = context.WithValue(ctx, pcap.PcapContextLogName, fmt.Sprintf("projects/%s/pcaps/%s", os.Getenv("PROJECT_ID"), id))
-		start(ctx, timeout, tasks)
+		logName := fmt.Sprintf("projects/%s/pcaps/%s", os.Getenv("PROJECT_ID"), id)
+		ctx = context.WithValue(ctx, pcap.PcapContextLogName, logName)
+		job := &tcpdumpJob{Jid: uuid.Nil.String(), tasks: tasks}
+		start(ctx, timeout, job)
 		return
 	}
 

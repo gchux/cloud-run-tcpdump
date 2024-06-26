@@ -10,6 +10,7 @@ done
 set -x
 
 exec env /bin/tcpdumpw \
+    -gae=${PCAP_GAE} \
     -use_cron=${PCAP_USE_CRON:-false} \
     -cron_exp="${PCAP_CRON_EXP:--}" \
     -timezone="${PCAP_TZ:-UTC}" \

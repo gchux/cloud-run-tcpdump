@@ -7,8 +7,8 @@ github.com/davecgh/go-spew v1.1.1 h1:vj9j/u1bqnvCEfJOwUhtlOARqs3+rkHYY13jYWTU97c
 github.com/davecgh/go-spew v1.1.1/go.mod h1:J7Y8YcW2NihsgmVo/mv3lAwl/skON4iLHjSsI+c5H38=
 github.com/easyCZ/logrotate v0.3.0 h1:IYihLY2NKKPu9LjZWgxZATAKpzz5KLXSAuqJgDy++XU=
 github.com/easyCZ/logrotate v0.3.0/go.mod h1:noWLLQ0I45CRGXb9bGYuOcZXFE74fdgCldGPqz8txpU=
-github.com/gchux/pcap-cli v1.0.0-rc13 h1:iJjodoLoPuRE7vAtzOwaQ3mtAqL1Yp8bANlyUJy0HHU=
-github.com/gchux/pcap-cli v1.0.0-rc13/go.mod h1:7lNpjTNnU/eL9/ColBEaDUFgzI1I0vTzeHu7uYyJN+E=
+github.com/gchux/pcap-cli v1.0.0-rc18 h1:SpQkAefd5/GGtebhQMGmSGn8Ib3EAQ8wSiLx2hnGpTE=
+github.com/gchux/pcap-cli v1.0.0-rc18/go.mod h1:cfMWqcwSZKCmTIImoM4LNW+foY6nc/0RnoTuu4wpn94=
 github.com/go-co-op/gocron/v2 v2.5.0 h1:ff/TJX9GdTJBDL1il9cyd/Sj3WnS+BB7ZzwHKSNL5p8=
 github.com/go-co-op/gocron/v2 v2.5.0/go.mod h1:ckPQw96ZuZLRUGu88vVpd9a6d9HakI14KWahFZtGvNw=
 github.com/google/gopacket v1.1.19 h1:ves8RnFZPGiFnTS0uPQStjwru6uO6h+nlr9j6fL7kF8=
@@ -41,6 +41,8 @@ github.com/stretchr/testify v1.9.0 h1:HtqpIVDClZ4nwg75+f6Lvsy/wHu+3BoSGCbBAcpTsT
 github.com/stretchr/testify v1.9.0/go.mod h1:r2ic/lqez/lEtzL7wO/rwa5dbSLXVDPFyf8C91i36aY=
 github.com/tejzpr/ordered-concurrently/v3 v3.0.1 h1:TLHtzlQEDshbmGveS8S+hxLw4s5u67aoJw5LLf+X2xY=
 github.com/tejzpr/ordered-concurrently/v3 v3.0.1/go.mod h1:mu/neZ6AGXm5jdPc7PEgViYK3rkYNPvVCEm15Cx/iRI=
+github.com/wissance/stringFormatter v1.2.0 h1:lB0zcJkTA1O4Eb2qSTJmyapla/LihQt6NpJLghwWSb0=
+github.com/wissance/stringFormatter v1.2.0/go.mod h1:H7Mz15+5i8ypmv6bLknM/uD+U1teUW99PlW0DNCNscA=
 go.uber.org/goleak v1.3.0 h1:2K3zAYmnTNqV73imy9J1T3WC+gmCePx2hEGkimedGto=
 go.uber.org/goleak v1.3.0/go.mod h1:CoHD4mav9JJNrW/WLlf7HGZPjdw8EucARQHekz1X6bE=
 golang.org/x/crypto v0.0.0-20190308221718-c2843e01d9a2/go.mod h1:djNgcEr1/C05ACkg1iLfiJU5Ep61QUkGW8qpdssI0+w=
