@@ -7,8 +7,8 @@ github.com/davecgh/go-spew v1.1.1 h1:vj9j/u1bqnvCEfJOwUhtlOARqs3+rkHYY13jYWTU97c
 github.com/davecgh/go-spew v1.1.1/go.mod h1:J7Y8YcW2NihsgmVo/mv3lAwl/skON4iLHjSsI+c5H38=
 github.com/easyCZ/logrotate v0.3.0 h1:IYihLY2NKKPu9LjZWgxZATAKpzz5KLXSAuqJgDy++XU=
 github.com/easyCZ/logrotate v0.3.0/go.mod h1:noWLLQ0I45CRGXb9bGYuOcZXFE74fdgCldGPqz8txpU=
-github.com/gchux/pcap-cli v1.0.0-rc21 h1:G8KU2g+C/2DZgSzzQH9RX63oe1X2xZwL/BE29zJr5Oc=
-github.com/gchux/pcap-cli v1.0.0-rc21/go.mod h1:cfMWqcwSZKCmTIImoM4LNW+foY6nc/0RnoTuu4wpn94=
+github.com/gchux/pcap-cli v1.0.0-rc22 h1:EZ83yYcB6zaeZSXBZEINPTwB49ZCddXngmTW8DXKKMM=
+github.com/gchux/pcap-cli v1.0.0-rc22/go.mod h1:cfMWqcwSZKCmTIImoM4LNW+foY6nc/0RnoTuu4wpn94=
 github.com/go-co-op/gocron/v2 v2.5.0 h1:ff/TJX9GdTJBDL1il9cyd/Sj3WnS+BB7ZzwHKSNL5p8=
 github.com/go-co-op/gocron/v2 v2.5.0/go.mod h1:ckPQw96ZuZLRUGu88vVpd9a6d9HakI14KWahFZtGvNw=
 github.com/google/gopacket v1.1.19 h1:ves8RnFZPGiFnTS0uPQStjwru6uO6h+nlr9j6fL7kF8=
