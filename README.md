@@ -326,9 +326,11 @@ More advanced use cases may benefit from scheduling `tcpdump` executions. Use th
         --cpus=1 --cpuset-cpus=1 \
         --privileged --network=host \
         --env-file=./pcap.env \
-        -v ./gae:/gae -v /var/lAog:/var/log \
+        -v ./gae:/gae -v /var/log:/var/log \
         -v /var/run/docker.sock:/docker.sock \
         ${TCPDUMP_IMAGE_URI} nsenter -t 1 -u -n -i /init \
         >/var/log/app_engine/app/STDOUT_pcap.log \
         2>/var/log/app_engine/app/STDERR_pcap.log
       ```
+
+> **NOTE**: for **GAE Flex**: it is strongly recommended to not use `PCAP_FILTER=tcp or udp` ( or even `tcp port 443` ) as packets are streamed into Cloud Logging using its gRPC API, which means that traffic is HTTP/2 over TCP and so if you capture all TCP and UDP traffic you'll also be capturing all what's being exported into Cloud Logging which will cause a write aplification effect that will starve memory as all your traffic will eventually be stored in sidecar's memory.
