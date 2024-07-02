@@ -9,6 +9,7 @@ import (
 	"os"
 	"os/signal"
 	"regexp"
+	"strconv"
 	"sync"
 	"sync/atomic"
 	"syscall"
@@ -42,9 +43,10 @@ var (
 )
 
 var (
-	ifacePrefix string = os.Getenv("PCAP_IFACE")
-	sidecar     string = os.Getenv("APP_SIDECAR")
-	module      string = os.Getenv("PROC_NAME")
+	ifacePrefixEnvVar string = os.Getenv("PCAP_IFACE")
+	sidecarEnvVar     string = os.Getenv("APP_SIDECAR")
+	moduleEnvVar      string = os.Getenv("PROC_NAME")
+	gaeEnvVar         string = os.Getenv("GCP_GAE")
 )
 
 var (
@@ -102,8 +104,8 @@ func jlog(severity jLogLevel, job *tcpdumpJob, message string) {
 	entry := &jLogEntry{
 		Severity: severity,
 		Message:  message,
-		Sidecar:  sidecar,
-		Module:   module,
+		Sidecar:  sidecarEnvVar,
+		Module:   moduleEnvVar,
 		Job:      j,
 		Tags:     j.Tags,
 	}
@@ -204,13 +206,21 @@ func newPcapConfig(
 }
 
 func createTasks(
-	timezone, directory, extension, filter *string,
+	ifacePrefix, timezone, directory, extension, filter *string,
 	snaplen, interval *int,
-	tcpdump, jsondump, jsonlog, ordered, gcp_gae *bool,
+	tcpdump, jsondump, jsonlog, ordered, gcpGAE *bool,
 ) []*pcapTask {
 	tasks := []*pcapTask{}
 
-	ifaceRegexp := regexp.MustCompile(fmt.Sprintf("^(?:(?:lo$)|(?:(?:ipvlan-)?%s\\d+.*$))", ifacePrefix))
+	iface := ifacePrefixEnvVar
+	if iface == "" {
+		iface = *ifacePrefix
+	}
+
+	isGAE, err := strconv.ParseBool(gaeEnvVar)
+	isGAE = (err == nil && isGAE) || *gcpGAE
+
+	ifaceRegexp := regexp.MustCompile(fmt.Sprintf("^(?:(?:lo$)|(?:(?:ipvlan-)?%s\\d+.*$))", iface))
 	devices, _ := pcap.FindDevicesByRegex(ifaceRegexp)
 
 	for _, device := range devices {
@@ -262,9 +272,7 @@ func createTasks(
 		pcapWriters := []pcap.PcapWriter{}
 
 		// writing JSON PCAP file is only enabled if `jsondump` is enabled
-		if *jsondump {
-			jsondumpWriter, writerErr = pcap.NewPcapWriter(&output, &jsondumpCfg.Extension, timezone, *interval)
-		}
+		jsondumpWriter, writerErr = pcap.NewPcapWriter(&output, &jsondumpCfg.Extension, timezone, *interval)
 		if writerErr != nil {
 			jlog(ERROR, &emptyTcpdumpJob, fmt.Sprintf("jsondump file writer creation failed: %s (%s)", ifaceAndIndex, writerErr))
 		} else {
@@ -286,7 +294,7 @@ func createTasks(
 		}
 
 		gaeOutput := ""
-		if *gcp_gae {
+		if isGAE {
 			gaeOutput = fmt.Sprintf(gaeFileOutput, netIface.Index, netIface.Name)
 			gaejsonWriter, writerErr = pcap.NewPcapWriter(&gaeOutput, &jsondumpCfg.Extension, timezone, gaeJSONInterval)
 		} else {
@@ -313,10 +321,10 @@ func main() {
 	xid.Store(uuid.Nil)
 
 	jlog(INFO, &emptyTcpdumpJob,
-		fmt.Sprintf("args[use_cron:%t|cron_exp:%s|timezone:%s|timeout:%d|extension:%s|directory:%s|snaplen:%d|filter:%s|interval:%d|tcpdump:%t|jsondump:%t|jsonlog:%t|ordered:%t]",
-			*use_cron, *cron_exp, *timezone, *duration, *extension, *directory, *snaplen, *filter, *interval, *tcp_dump, *json_dump, *json_log, *ordered))
+		fmt.Sprintf("args[iface:%s|use_cron:%t|cron_exp:%s|timezone:%s|timeout:%d|extension:%s|directory:%s|snaplen:%d|filter:%s|interval:%d|tcpdump:%t|jsondump:%t|jsonlog:%t|ordered:%t|gcp_gae:%t]",
+			*pcap_iface, *use_cron, *cron_exp, *timezone, *duration, *extension, *directory, *snaplen, *filter, *interval, *tcp_dump, *json_dump, *json_log, *ordered, *gcp_gae))
 
-	tasks := createTasks(timezone, directory, extension, filter, snaplen, interval, tcp_dump, json_dump, json_log, ordered, gcp_gae)
+	tasks := createTasks(pcap_iface, timezone, directory, extension, filter, snaplen, interval, tcp_dump, json_dump, json_log, ordered, gcp_gae)
 
 	if len(tasks) == 0 {
 		jlog(ERROR, &emptyTcpdumpJob, "no PCAP tasks available")
