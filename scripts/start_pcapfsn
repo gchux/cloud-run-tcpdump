@@ -16,4 +16,5 @@ exec env /bin/pcap_fsn \
     -src_dir=${PCAP_TMP} \
     -gcs_dir=${PCAP_DIR} \
     -pcap_ext="${PCAP_EXT}" \
-    -gzip=${PCAP_GZIP}
+    -gzip=${PCAP_GZIP} \
+    -gae=${PCAP_GAE}

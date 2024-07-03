@@ -2,16 +2,22 @@ package main
 
 import (
 	"compress/gzip"
+	"context"
 	"flag"
 	"fmt"
 	"io"
 	"log"
 	"os"
+	"os/exec"
+	"os/signal"
 	"path/filepath"
 	"regexp"
+	"strconv"
 	"strings"
 	"sync"
 	"sync/atomic"
+	"syscall"
+	"time"
 
 	"github.com/fsnotify/fsnotify"
 	"go.uber.org/zap"
@@ -23,6 +29,7 @@ var (
 	gcs_dir    = flag.String("gcs_dir", "/pcap", "pcaps destination directory")
 	pcap_ext   = flag.String("pcap_ext", "pcap", "pcap files extension")
 	gzip_pcaps = flag.Bool("gzip", false, "compress pcap files")
+	gcp_gae    = flag.Bool("gae", false, "define serverless execution environment")
 )
 
 var (
@@ -33,6 +40,7 @@ var (
 	sidecar    string   = os.Getenv("APP_SIDECAR")
 	instanceID string   = os.Getenv("INSTANCE_ID")
 	module     string   = os.Getenv("PROC_NAME")
+	gcpGAE     string   = os.Getenv("PCAP_GAE")
 	tags       []string = []string{projectID, service, gcpRegion, version, instanceID}
 )
 
@@ -67,6 +75,13 @@ const (
 	PCAP_CREATE pcapEvent = "PCAP_CREATE"
 	PCAP_EXPORT pcapEvent = "PCAP_EXPORT"
 	PCAP_QUEUED pcapEvent = "PCAP_QUEUED"
+	PCAP_OSWMEM pcapEvent = "PCAP_OSWMEM"
+)
+
+const (
+	cgroupMemoryUtilization       = "/sys/fs/cgroup/memory/memory.usage_in_bytes"
+	dockerCgroupMemoryUtilization = "/sys/fs/cgroup/memory.current"
+	procSysVmDropCaches           = "/proc/sys/vm/drop_caches"
 )
 
 var counters, lastPcap sync.Map
@@ -127,10 +142,54 @@ func movePcapToGcs(pcap *uint64, srcPcap *string, dstDir *string, compress *bool
 	return &tgtPcap, &pcapBytes, nil
 }
 
+func getCurrentMemoryUtilization(isGAE bool) (uint64, error) {
+	var err error
+	var memoryUtilizationFilePath string
+
+	if isGAE {
+		memoryUtilizationFilePath = dockerCgroupMemoryUtilization
+	} else {
+		memoryUtilizationFilePath = cgroupMemoryUtilization
+	}
+
+	memoryUtilizationFile, err := os.OpenFile(memoryUtilizationFilePath, os.O_RDONLY, 0o444 /* -r--r--r-- */)
+	if err != nil {
+		return 0, err
+	}
+
+	var memoryUtilization int
+	_, err = fmt.Fscanf(memoryUtilizationFile, "%d\n", &memoryUtilization)
+	if err != nil {
+		if err == io.EOF {
+			return uint64(memoryUtilization), nil
+		}
+		return 0, err
+	}
+	return uint64(memoryUtilization), nil
+}
+
+func flushBuffers() (int, error) {
+	cmd := exec.Command("sync")
+	cmd.Stdout = os.Stdout
+	cmd.Stderr = os.Stderr
+	cmd.Run()
+	// see: https://www.kernel.org/doc/Documentation/sysctl/vm.txt
+	fd, err := os.OpenFile(procSysVmDropCaches,
+		os.O_WRONLY|os.O_TRUNC, 0o200 /* --w------- */)
+	if err != nil {
+		return 0, err
+	}
+	defer fd.Close()
+	return fmt.Fprintln(fd, "3")
+}
+
 func main() {
 	flag.Parse()
 
 	defer logger.Sync()
+
+	isGAE, isGAEerr := strconv.ParseBool(gcpGAE)
+	isGAE = (isGAEerr == nil && isGAE) || *gcp_gae
 
 	ext := strings.Join(strings.Split(*pcap_ext, ","), "|")
 	fmt.Println(ext)
@@ -154,16 +213,25 @@ func main() {
 	}
 	defer watcher.Close()
 
+	ctx, cancel := context.WithCancel(context.Background())
+	sigChan := make(chan os.Signal, 1)
+	signal.Notify(sigChan, syscall.SIGINT, syscall.SIGTERM)
+
 	// Start listening for FS events at PCAP files source directory.
 	go func() {
-		// [ToDo]: implement fast-pcap-export
-		// using a short timeout for `tcpdumnp` and long periods between executions may cause orphaned PCAPs;
-		// implement a validation to confirm that `tcpdump` is not running while PCAP files are available.
+		ticker := time.NewTicker(60 * time.Second)
 		for {
 			select {
+
+			case <-sigChan:
+				ticker.Stop()
+				watcher.Remove(*src_dir)
+				watcher.Close()
+				cancel()
+
 			case event, ok := <-watcher.Events:
 				if !ok {
-					return
+					continue
 				}
 				// Skip events which are not CREATE, and all which are not related to PCAP files
 				if !event.Has(fsnotify.Create) || !pcapDotExt.MatchString(event.Name) {
@@ -220,11 +288,34 @@ func main() {
 				} else {
 					logFsEvent(zapcore.ErrorLevel, fmt.Sprintf("leaked PCAP file: [%s] (%s/%s/%d) %s", key, ext, iface, iteration, event.Name), PCAP_QUEUED, event.Name, "" /* target PCAP file */, 0)
 				}
+
 			case fsnErr, ok := <-watcher.Errors:
 				if !ok {
-					return
+					ticker.Stop()
+					watcher.Close()
+					os.Exit(1)
 				}
 				logFsEvent(zapcore.ErrorLevel, fmt.Sprintf("%v", fsnErr), PCAP_FSNERR, "" /* source PCAP file */, "" /* target PCAP file */, 0)
+
+			case <-ticker.C:
+				// packet capturing is write intensive
+				// OS buffers memory must be fluhsed often to prevent memory saturation
+				// flushing OS file write buffers is safe: 'non-destructive operation and will not free any dirty objects'
+				// additionally, PCAP files are [write|append]-only
+				memoryBefore, _ := getCurrentMemoryUtilization(isGAE)
+				_, memFlushErr := flushBuffers()
+				memoryAfter, _ := getCurrentMemoryUtilization(isGAE)
+				if memFlushErr != nil {
+					logFsEvent(zapcore.ErrorLevel,
+						fmt.Sprintf("failed to flush OS file write buffers: [memory=%d] | %+v", memoryAfter, memFlushErr),
+						PCAP_OSWMEM, "" /* source PCAP File */, "" /* target PCAP file */, 0)
+					continue
+				}
+				finalMemory := int(memoryBefore) - int(memoryAfter)
+				logFsEvent(zapcore.InfoLevel,
+					fmt.Sprintf("flushed OS file write buffers: memory[before=%d|after=%d] / released=%d", memoryBefore, memoryAfter, finalMemory),
+					PCAP_OSWMEM, "" /* source PCAP File */, "" /* target PCAP file */, 0)
+
 			}
 		}
 	}()
@@ -240,6 +331,5 @@ func main() {
 	sugar.Infow(fmt.Sprintf("watching directory: %s", *src_dir),
 		"data", initEvent, "sidecar", sidecar, "module", module, "tags", tags)
 
-	// Block main goroutine forever.
-	<-make(chan struct{})
+	<-ctx.Done()
 }

@@ -296,7 +296,7 @@ func createTasks(
 		gaeOutput := ""
 		if isGAE {
 			gaeOutput = fmt.Sprintf(gaeFileOutput, netIface.Index, netIface.Name)
-			gaejsonWriter, writerErr = pcap.NewPcapWriter(&gaeOutput, &jsondumpCfg.Extension, timezone, gaeJSONInterval)
+			gaejsonWriter, writerErr = pcap.NewPcapWriter(&gaeOutput, &jsondumpCfg.Extension, timezone, *interval)
 		} else {
 			gaejsonWriter, writerErr = nil, gaeDisabledErr
 		}

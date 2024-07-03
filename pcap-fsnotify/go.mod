@@ -1,6 +1,6 @@
 module github.com/gchux/cloud-run-tcpdump/pcap-fsnotify
 
-go 1.20
+go 1.22.4
 
 require (
 	github.com/fsnotify/fsnotify v1.7.0
