@@ -14,6 +14,8 @@ import (
 	"sync/atomic"
 	"syscall"
 	"time"
+
+	// _ "net/http/pprof"
 	_ "time/tzdata"
 
 	"github.com/gchux/pcap-cli/pkg/pcap"

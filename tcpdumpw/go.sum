@@ -7,8 +7,16 @@ github.com/davecgh/go-spew v1.1.1 h1:vj9j/u1bqnvCEfJOwUhtlOARqs3+rkHYY13jYWTU97c
 github.com/davecgh/go-spew v1.1.1/go.mod h1:J7Y8YcW2NihsgmVo/mv3lAwl/skON4iLHjSsI+c5H38=
 github.com/easyCZ/logrotate v0.3.0 h1:IYihLY2NKKPu9LjZWgxZATAKpzz5KLXSAuqJgDy++XU=
 github.com/easyCZ/logrotate v0.3.0/go.mod h1:noWLLQ0I45CRGXb9bGYuOcZXFE74fdgCldGPqz8txpU=
+<<<<<<< HEAD
 github.com/gchux/pcap-cli v1.0.0-rc23 h1:IT8uiEz2BNJoHiNJlcJ+jaHM+EuYbran99cQqHlxt6c=
 github.com/gchux/pcap-cli v1.0.0-rc23/go.mod h1:cfMWqcwSZKCmTIImoM4LNW+foY6nc/0RnoTuu4wpn94=
+||||||| parent of 3ef8e67 ([fix]: enable log rotation in GAE logs dir)
+github.com/gchux/pcap-cli v1.0.0-rc20 h1:/h1+kRjYWLiHdGHx01D1M/kLfCKScbYZAeW+51HhS6k=
+github.com/gchux/pcap-cli v1.0.0-rc20/go.mod h1:cfMWqcwSZKCmTIImoM4LNW+foY6nc/0RnoTuu4wpn94=
+=======
+github.com/gchux/pcap-cli v1.0.0-rc21 h1:G8KU2g+C/2DZgSzzQH9RX63oe1X2xZwL/BE29zJr5Oc=
+github.com/gchux/pcap-cli v1.0.0-rc21/go.mod h1:cfMWqcwSZKCmTIImoM4LNW+foY6nc/0RnoTuu4wpn94=
+>>>>>>> 3ef8e67 ([fix]: enable log rotation in GAE logs dir)
 github.com/go-co-op/gocron/v2 v2.5.0 h1:ff/TJX9GdTJBDL1il9cyd/Sj3WnS+BB7ZzwHKSNL5p8=
 github.com/go-co-op/gocron/v2 v2.5.0/go.mod h1:ckPQw96ZuZLRUGu88vVpd9a6d9HakI14KWahFZtGvNw=
 github.com/google/gopacket v1.1.19 h1:ves8RnFZPGiFnTS0uPQStjwru6uO6h+nlr9j6fL7kF8=

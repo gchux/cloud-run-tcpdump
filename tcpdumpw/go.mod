@@ -2,10 +2,22 @@ module github.com/gchux/cloud-run-tcpdump/tcpdumpw
 
 go 1.22.4
 
+<<<<<<< HEAD
 // replace github.com/gchux/pcap-cli v1.0.0-rc23 => ../pcap-cli
+||||||| parent of 3ef8e67 ([fix]: enable log rotation in GAE logs dir)
+// replace github.com/gchux/pcap-cli v1.0.0-rc20 => ../pcap-cli
+=======
+// replace github.com/gchux/pcap-cli v1.0.0-rc21 => ../pcap-cli
+>>>>>>> 3ef8e67 ([fix]: enable log rotation in GAE logs dir)
 
 require (
+<<<<<<< HEAD
 	github.com/gchux/pcap-cli v1.0.0-rc23
+||||||| parent of 3ef8e67 ([fix]: enable log rotation in GAE logs dir)
+	github.com/gchux/pcap-cli v1.0.0-rc20
+=======
+	github.com/gchux/pcap-cli v1.0.0-rc21
+>>>>>>> 3ef8e67 ([fix]: enable log rotation in GAE logs dir)
 	github.com/go-co-op/gocron/v2 v2.5.0
 	github.com/google/uuid v1.6.0
 	github.com/lrita/cmap v0.0.0-20231108122212-cb084a67f554
