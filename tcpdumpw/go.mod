@@ -2,10 +2,10 @@ module github.com/gchux/cloud-run-tcpdump/tcpdumpw
 
 go 1.22.4
 
-// replace github.com/gchux/pcap-cli v1.0.0-rc26 => ../pcap-cli
+// replace github.com/gchux/pcap-cli v1.0.0-rc32 => ../pcap-cli
 
 require (
-	github.com/gchux/pcap-cli v1.0.0-rc26
+	github.com/gchux/pcap-cli v1.0.0-rc32
 	github.com/go-co-op/gocron/v2 v2.5.0
 	github.com/google/uuid v1.6.0
 	github.com/lrita/cmap v0.0.0-20231108122212-cb084a67f554
@@ -25,6 +25,7 @@ require (
 	github.com/jonboulle/clockwork v0.4.0 // indirect
 	github.com/lithammer/fuzzysearch v1.1.8 // indirect
 	github.com/mattn/go-runewidth v0.0.15 // indirect
+	github.com/mhmtszr/concurrent-swiss-map v1.0.8 // indirect
 	github.com/mitchellh/go-ps v1.0.0 // indirect
 	github.com/panjf2000/ants/v2 v2.10.0 // indirect
 	github.com/pkg/errors v0.9.1 // indirect

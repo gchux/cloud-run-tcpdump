@@ -2,6 +2,8 @@
 
 set -xm
 
+printenv
+
 export ENV_FILE='/tcpdump.env'
 
 export MDS_URL='http://metadata.google.internal/computeMetadata/v1'
@@ -70,7 +72,7 @@ echo "PCAP_TMP=${PCAP_TMP}" >> ${ENV_FILE}
 echo "PCAP_FILE=${PCAP_FILE}" >> ${ENV_FILE}
 echo "PCAP_DIR=${PCAP_DIR}" >> ${ENV_FILE}
 
-echo "GCS_BUCKET=${GCS_BUCKET}" >> ${GCS_BUCKET}
+echo "GCS_BUCKET=${PCAP_GCS_BUCKET:-chux-pcap}" >> ${ENV_FILE}
 echo "PCAP_FILTER=${PCAP_FILTER}" >> ${ENV_FILE}
 echo "PCAP_SECS=${PCAP_SECS}" >> ${ENV_FILE}
 echo "PCAP_SNAPLEN=${PCAP_SNAPLEN}" >> ${ENV_FILE}
