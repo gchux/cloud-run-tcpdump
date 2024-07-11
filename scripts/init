@@ -92,6 +92,6 @@ echo "PCAP_IFACE=${PCAP_IFACE:-eth}" >> ${ENV_FILE}
 mkdir -p ${PCAP_MNT}
 mkdir -p ${PCAP_TMP}
 
-echo "[INFO] - PCAP files available at: gs://${GCS_BUCKET}/${GCS_DIR}"
+echo "[INFO] - PCAP files available at: gs://${PCAP_GCS_BUCKET}/${GCS_DIR}"
 
 /bin/supervisord --configuration=/tcpdump.conf --env-file=${ENV_FILE}
