@@ -182,10 +182,10 @@ func tcpdump(timeout time.Duration) error {
 	}
 
 	// enable PCAP tasks with context awareness
-	id := fmt.Sprintf("%s/%s", jobID.String(), exeID)
+	id := fmt.Sprintf("job/%s/exe/%s", jobID.String(), exeID)
 	ctx := context.WithValue(job.ctx, pcap.PcapContextID, id)
 	ctx = context.WithValue(ctx, pcap.PcapContextLogName,
-		fmt.Sprintf("projects/%s/pcaps/%s", os.Getenv("PROJECT_ID"), id))
+		fmt.Sprintf("projects/%s/pcap/%s", os.Getenv("PROJECT_ID"), id))
 
 	return start(ctx, timeout, job)
 }

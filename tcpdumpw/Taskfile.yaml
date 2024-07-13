@@ -28,6 +28,7 @@ tasks:
       - task: update-gitmodules
       - task: go-fmt
       - task: go-gen
+      - go mod tidy
       - >-
         go build
         -o bin/$TCPDUMPW_BIN_NAME

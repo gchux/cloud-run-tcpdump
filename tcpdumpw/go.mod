@@ -2,10 +2,10 @@ module github.com/gchux/cloud-run-tcpdump/tcpdumpw
 
 go 1.22.4
 
-// replace github.com/gchux/pcap-cli v1.0.0-rc32 => ../pcap-cli
+// replace github.com/gchux/pcap-cli v1.0.0-rc34 => ../pcap-cli
 
 require (
-	github.com/gchux/pcap-cli v1.0.0-rc32
+	github.com/gchux/pcap-cli v1.0.0-rc34
 	github.com/go-co-op/gocron/v2 v2.5.0
 	github.com/google/uuid v1.6.0
 	github.com/lrita/cmap v0.0.0-20231108122212-cb084a67f554
@@ -32,6 +32,7 @@ require (
 	github.com/pterm/pterm v0.12.79 // indirect
 	github.com/rivo/uniseg v0.4.4 // indirect
 	github.com/robfig/cron/v3 v3.0.1 // indirect
+	github.com/segmentio/fasthash v1.0.3 // indirect
 	github.com/tejzpr/ordered-concurrently/v3 v3.0.1 // indirect
 	github.com/wissance/stringFormatter v1.2.0 // indirect
 	github.com/xo/terminfo v0.0.0-20220910002029-abceb7e1c41e // indirect
