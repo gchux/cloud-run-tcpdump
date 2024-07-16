@@ -40,6 +40,7 @@ var (
 	json_dump  = flag.Bool("jsondump", false, "enable JSON PCAP using gopacket")
 	json_log   = flag.Bool("jsonlog", false, "enable JSON PCAP to stardard output")
 	ordered    = flag.Bool("ordered", false, "write JSON PCAP output as obtained from gopacket")
+	conntrack  = flag.Bool("conntrack", false, "enable connection tracking ('ordered' is also enabled)")
 	gcp_gae    = flag.Bool("gae", false, "enable GAE Flex environment configuration")
 	pcap_iface = flag.String("iface", "", "prefix to scan for network interfaces to capture from")
 )
@@ -193,6 +194,7 @@ func tcpdump(timeout time.Duration) error {
 func newPcapConfig(
 	iface, format, output, extension, filter string,
 	snaplen, interval int,
+	ordered, conntrack bool,
 ) *pcap.PcapConfig {
 	return &pcap.PcapConfig{
 		Promisc:   true,
@@ -204,13 +206,15 @@ func newPcapConfig(
 		Extension: extension,
 		Filter:    filter,
 		Interval:  interval,
+		Ordered:   ordered,
+		ConnTrack: conntrack,
 	}
 }
 
 func createTasks(
 	ifacePrefix, timezone, directory, extension, filter *string,
 	snaplen, interval *int,
-	tcpdump, jsondump, jsonlog, ordered, gcpGAE *bool,
+	tcpdump, jsondump, jsonlog, ordered, conntrack, gcpGAE *bool,
 ) []*pcapTask {
 	tasks := []*pcapTask{}
 
@@ -235,8 +239,8 @@ func createTasks(
 
 		output := fmt.Sprintf(runFileOutput, *directory, netIface.Index, netIface.Name)
 
-		tcpdumpCfg := newPcapConfig(iface, "pcap", output, *extension, *filter, *snaplen, *interval)
-		jsondumpCfg := newPcapConfig(iface, "json", output, "json", *filter, *snaplen, *interval)
+		tcpdumpCfg := newPcapConfig(iface, "pcap", output, *extension, *filter, *snaplen, *interval, *ordered, *conntrack)
+		jsondumpCfg := newPcapConfig(iface, "json", output, "json", *filter, *snaplen, *interval, *ordered, *conntrack)
 
 		// premature optimization is the root of all evil
 		var engineErr, writerErr error = nil, nil
@@ -326,7 +330,7 @@ func main() {
 		fmt.Sprintf("args[iface:%s|use_cron:%t|cron_exp:%s|timezone:%s|timeout:%d|extension:%s|directory:%s|snaplen:%d|filter:%s|interval:%d|tcpdump:%t|jsondump:%t|jsonlog:%t|ordered:%t|gcp_gae:%t]",
 			*pcap_iface, *use_cron, *cron_exp, *timezone, *duration, *extension, *directory, *snaplen, *filter, *interval, *tcp_dump, *json_dump, *json_log, *ordered, *gcp_gae))
 
-	tasks := createTasks(pcap_iface, timezone, directory, extension, filter, snaplen, interval, tcp_dump, json_dump, json_log, ordered, gcp_gae)
+	tasks := createTasks(pcap_iface, timezone, directory, extension, filter, snaplen, interval, tcp_dump, json_dump, json_log, ordered, conntrack, gcp_gae)
 
 	if len(tasks) == 0 {
 		jlog(ERROR, &emptyTcpdumpJob, "no PCAP tasks available")

@@ -22,5 +22,6 @@ exec env /bin/tcpdumpw \
     -jsondump=${PCAP_JSONDUMP:-false} \
     -jsonlog=${PCAP_JSONDUMP_LOG:-false} \
     -ordered=${PCAP_ORDERED:-false} \
+    -conntrack=${PCAP_CONNTRACK:-false} \
     -snaplen=${PCAP_SNAPLEN:-0} \
     -filter="${PCAP_FILTER}"
