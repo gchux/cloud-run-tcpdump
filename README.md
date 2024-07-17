@@ -4,7 +4,7 @@ This repository contains the source code to create a container image containing 
 
 Captured packets are optionally translated to JSON and written into [`Cloud Logging`](https://cloud.google.com/logging/docs/structured-logging)
 
-![alt text](https://github.com/gchux/cloud-run-tcpdump/blob/pcap-json/img/pcap_json.png?raw=true)
+![alt text](https://github.com/gchux/cloud-run-tcpdump/blob/main/img/pcap_json.png?raw=true)
 
 ## Motivation
 
