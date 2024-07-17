@@ -9,7 +9,8 @@ then
   exit
 fi
 
-BIN_DIR="$(pwd)/bin"
+export MAIN_PID=$$
+export BIN_DIR="$(pwd)/bin"
 
 if [ -d ${BIN_DIR} ]; then
   echo "cleaning release directory: ${BIN_DIR}"
@@ -19,14 +20,23 @@ else
   mkdir -p ${BIN_DIR}
 fi
 
-# build `tcpdump` wrapper and extract it into `CWD`/bin
-docker buildx build --file=$(pwd)/tcpdumpw/Dockerfile --no-cache --output "$(pwd)/bin" --target releaser $(pwd)/tcpdumpw
+function docker_build {
+  echo "building: ${1}"
+  docker buildx build \
+    --file=${1}/Dockerfile \
+    --no-cache --output ${BIN_DIR} \
+    --target releaser ${1}
+  if [ $? -ne 0 ]; then
+    echo "failed to build: ${1}"
+    kill -s TERM $MAIN_PID
+  fi
+}
 
-# build `pcap_fsn` and extract it into `CWD`/bin
-docker buildx build --file=$(pwd)/pcap-fsnotify/Dockerfile --no-cache --output "$(pwd)/bin" --target releaser $(pwd)/pcap-fsnotify
-
-# build `supervisord` and extract it into `CWD`/bin
-docker buildx build --file=$(pwd)/supervisord/Dockerfile --no-cache --output "$(pwd)/bin" --target releaser $(pwd)/supervisord
+docker_build $(pwd)/tcpdumpw
+docker_build $(pwd)/pcap-fsnotify
+docker_build $(pwd)/supervisord
 
 # build `tcpdump` sidecar image
-docker buildx build --file=$(pwd)/Dockerfile --no-cache -t ${1} $(pwd)
+docker buildx build \
+  --file=$(pwd)/Dockerfile \
+  --no-cache -t ${1} $(pwd)
