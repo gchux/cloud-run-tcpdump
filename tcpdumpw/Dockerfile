@@ -14,7 +14,7 @@
 # limitations under the License.
 
 
-FROM golang:1.22.4-bookworm AS build
+FROM --platform=linux/amd64 golang:1.22.4-bookworm AS build
 
 ARG DEBIAN_FRONTEND=noninteractive
 

@@ -23,6 +23,7 @@ fi
 function docker_build {
   echo "building: ${1}"
   docker buildx build \
+    --platform=linux/amd64 \
     --file=${1}/Dockerfile \
     --no-cache --output ${BIN_DIR} \
     --target releaser ${1}
@@ -38,5 +39,6 @@ docker_build $(pwd)/supervisord
 
 # build `tcpdump` sidecar image
 docker buildx build \
+  --platform=linux/amd64 \
   --file=$(pwd)/Dockerfile \
   --no-cache -t ${1} $(pwd)

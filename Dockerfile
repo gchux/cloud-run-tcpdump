@@ -12,7 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-FROM ubuntu:22.04
+FROM --platform=linux/amd64 ubuntu:22.04
 ARG DEBIAN_FRONTEND=noninteractive
 ARG GCSFUSE_VERSION='2.1.0'
 USER 0:0
