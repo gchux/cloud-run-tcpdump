@@ -85,7 +85,7 @@ This approach assumes that Artifact Registry is available in `PROJECT_ID`.
      export REPO_LOCATION='...' # Artifact Registry Docker repository location
      export REPO_NAME='...' # Artifact Registry Docker repository name
      export IMAGE_NAME='...' # container image name; i/e: `sidecars/tcpdump` 
-     export IMAGE_VERSION='...' # container image version; i/e: `latest`
+     export IMAGE_TAG='...' # container image version; i/e: `latest`
      export TCPDUMP_IMAGE_URI="${REPO_LOCATION}-docker.pkg.dev/${PROJECT_ID}/${IMAGE_NAME}:${IMAGE_VERSION}" # using Artifact Registry
      ```
 
@@ -95,7 +95,7 @@ This approach assumes that Artifact Registry is available in `PROJECT_ID`.
      gcloud builds submit \
        --project=${PROJECT_ID} \
        --config=$(pwd)/cloudbuild.yaml \
-       --substitutions="_REPO_LOCATION=${REPO_LOCATION},_REPO_NAME=${REPO_NAME},_IMAGE_NAME=${IMAGE_NAME},_IMAGE_VERSION=${IMAGE_VERSION}' $(pwd)
+       --substitutions='_REPO_LOCATION=${REPO_LOCATION},_REPO_NAME=${REPO_NAME},_IMAGE_NAME=${IMAGE_NAME},_IMAGE_TAG=${IMAGE_TAG}' $(pwd)
      ```
 
 >    See the full list of available flags for `gcloud builds submit`: https://cloud.google.com/sdk/gcloud/reference/builds/submit
