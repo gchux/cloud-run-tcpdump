@@ -114,7 +114,7 @@ This approach assumes that Artifact Registry is available in `PROJECT_ID`.
      export TCPDUMP_SIDECAR_NAME='...'
      export TCPDUMP_IMAGE_URI='...'      # same as the one used to build the sidecar container image
      export PCAP_IFACE='eth'             # prefix of the interface in which packets should be captured from
-     export GCS_BUCKET='...'             # the name of the Cloud Storage Bucket to mount
+     export PCAP_GCS_BUCKET='...'             # the name of the Cloud Storage Bucket to mount
      export PCAP_FILTER='...'            # the BPF filter to use; i/e: `tcp port 443`
      export PCAP_ROTATE_SECS='...'       # how often to rocate PCAP files; default is `60` seconds 
      export PCAP_SNAPSHOT_LENGTH='...'   # see: https://www.tcpdump.org/manpages/tcpdump.1.html#:~:text=%2D%2D-,snapshot%2Dlength,-%3Dsnaplen ; default is `0` bytes
@@ -138,7 +138,7 @@ This approach assumes that Artifact Registry is available in `PROJECT_ID`.
        --container=${TCPDUMP_SIDECAR_NAME}-1 \
        --image=${TCPDUMP_IMAGE_URI} \
        --cpu=1 --memory=1G \
-       --set-env-vars="PCAP_IFACE=${PCAP_IFACE},GCS_BUCKET=${GCS_BUCKET},PCAP_FILTER=${PCAP_FILTER},PCAP_ROTATE_SECS=${PCAP_ROTATE_SECS},PCAP_SNAPSHOT_LENGTH=${PCAP_SNAPSHOT_LENGTH}" \
+       --set-env-vars="PCAP_IFACE=${PCAP_IFACE},PCAP_GCS_BUCKET=${PCAP_GCS_BUCKET},PCAP_FILTER=${PCAP_FILTER},PCAP_ROTATE_SECS=${PCAP_ROTATE_SECS},PCAP_SNAPSHOT_LENGTH=${PCAP_SNAPSHOT_LENGTH}" \
        --depends-on=${INGRESS_CONTAINER_NAME}-1
      ```
 
@@ -152,7 +152,7 @@ The `tcpdump` sidecar accespts the following environment variables:
 
      >    Notice that `PCAP_IFACE` is not the full interface name nor a regex or a pattern, but a prefix; so `eth0` becomes `eth`, and `ens4` becomes `ens`
 
--    `GCS_BUCKET`: (STRING, **required**) the name of the Cloud Storage Bucket to be mounted and used to store **PCAP files**. Ensure that you provide the runtime service account the `roles/storage.admin` so that it may create objects and read bucket metadata.
+-    `PCAP_GCS_BUCKET`: (STRING, **required**) the name of the Cloud Storage Bucket to be mounted and used to store **PCAP files**. Ensure that you provide the runtime service account the `roles/storage.admin` so that it may create objects and read bucket metadata.
 
 -    `PCAP_FILTER`: (STRING, **required**) standard `tcpdump` bpf filters to scope the packet capture to specific traffic; i/e: `tcp`.
 
@@ -166,11 +166,11 @@ The `tcpdump` sidecar accespts the following environment variables:
 
 -    `PCAP_COMPRESS`: (BOOLEAN, *optional*) whether to compress **PCAP files** or not; default value is `true`.
 
--    `PCAP_TCPDUMP`: (BOOLEAN, *required*) wheter to use `tcpdump` or not ( `tcpdump` will generate pcap files, if not `PCAP_JSON` must be enabled ); default valie is `true`.
+-    `PCAP_TCPDUMP`: (BOOLEAN, *required*) whether to use `tcpdump` or not ( `tcpdump` will generate pcap files, if not `PCAP_JSON` must be enabled ) and push thos `.pcap` files to GCS ; default valie is `true`.
 
--    `PCAP_JSON`: (BOOLEAN, *optional*) wheter to use `JSON` to dump packets or not ; default value is `false`.
+-    `PCAP_JSON`: (BOOLEAN, *optional*) whether to use `JSON` to dump packets or not into GCS ; default value is `false`.
 
-     >    `PCAP_TCPDUMP` and `PCAP_JSON` maybe be both `true` in order to generate both: `.pcap` and `.json` **PCAP files**.
+     >    `PCAP_TCPDUMP` and `PCAP_JSON` maybe be both `true` in order to generate both: `.pcap` and `.json` **PCAP files** that are stored in GCS.
 
 -    `PCAP_JSON_LOG`: (BOOLEAN, *optional*) wheter to write `JSON` translated packets into `stdout` ( `PCAP_JSON` may not be enabled ); default value is `false`.
 
@@ -300,7 +300,7 @@ More advanced use cases may benefit from scheduling `tcpdump` executions. Use th
        ```sh
        # $ touch pcap.env
        PCAP_GAE=true
-       GCS_BUCKET=the-gcs-bucket         # the name of the Cloud Storage bucket used to store PCAP files
+       PCAP_GCS_BUCKET=the-gcs-bucket    # the name of the Cloud Storage bucket used to store PCAP files
        GCS_MOUNT=/gae/pcap               # where to mount the Cloud Storage bucket within the container FS
        PCAP_IFACE=eth                    # network interface prefix
        PCAP_FILTER=tcp or udp            # BPF filter to scope packet capturing to specific network traffic
