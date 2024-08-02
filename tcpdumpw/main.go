@@ -72,8 +72,10 @@ var (
 	jid, xid        atomic.Value
 	emptyTcpdumpJob = tcpdumpJob{Jid: uuid.Nil.String()}
 
-	jsonLogDisabledErr = errors.New("STDOUT JSON log disabled")
-	gaeDisabledErr     = errors.New("GAE JSON log disabled")
+	tcpdumpDisabledErr  = errors.New("GCS PCAP export disabled")
+	jsondumpDisabledErr = errors.New("GCS JSON export disabled")
+	jsonLogDisabledErr  = errors.New("STDOUT JSON log disabled")
+	gaeDisabledErr      = errors.New("GAE JSON log disabled")
 )
 
 type (
@@ -265,18 +267,17 @@ func createTasks(
 		if *tcpdump {
 			tcpdumpEngine, engineErr = pcap.NewTcpdump(tcpdumpCfg)
 		} else {
-			engineErr = fmt.Errorf("disabled")
+			engineErr = tcpdumpDisabledErr
 		}
-
 		if engineErr == nil {
 			tasks = append(tasks, &pcapTask{engine: tcpdumpEngine, writers: nil})
 			jlog(INFO, &emptyTcpdumpJob, fmt.Sprintf("configured 'tcpdump' for iface: %s", ifaceAndIndex))
-		} else {
-			jlog(ERROR, &emptyTcpdumpJob, fmt.Sprintf("tcpdump task creation failed: %s (%s)", ifaceAndIndex, engineErr))
+		} else if *tcpdump {
+			jlog(ERROR, &emptyTcpdumpJob, fmt.Sprintf("tcpdump GCS writer creation failed: %s (%s)", ifaceAndIndex, engineErr))
 		}
 
 		// skip JSON setup if JSON pcap is disabled
-		if !*jsondump {
+		if !*jsondump && !*jsonlog {
 			continue
 		}
 
@@ -292,13 +293,17 @@ func createTasks(
 
 		pcapWriters := []pcap.PcapWriter{}
 
-		// writing JSON PCAP file is only enabled if `jsondump` is enabled
-		jsondumpWriter, writerErr = pcap.NewPcapWriter(&output, &jsondumpCfg.Extension, timezone, *interval)
-		if writerErr != nil {
-			jlog(ERROR, &emptyTcpdumpJob, fmt.Sprintf("jsondump file writer creation failed: %s (%s)", ifaceAndIndex, writerErr))
+		if *jsondump {
+			// writing JSON PCAP file is only enabled if `jsondump` is enabled
+			jsondumpWriter, writerErr = pcap.NewPcapWriter(&output, &jsondumpCfg.Extension, timezone, *interval)
 		} else {
+			jsondumpWriter, writerErr = nil, jsondumpDisabledErr
+		}
+		if writerErr == nil {
 			pcapWriters = append(pcapWriters, jsondumpWriter)
 			jlog(INFO, &emptyTcpdumpJob, fmt.Sprintf("configured JSON '%s' writer for iface: %s", output, ifaceAndIndex))
+		} else if *jsondump {
+			jlog(ERROR, &emptyTcpdumpJob, fmt.Sprintf("jsondump GCS writer creation failed: %s (%s)", ifaceAndIndex, writerErr))
 		}
 
 		// add `/dev/stdout` as an additional PCAP writer
@@ -307,13 +312,14 @@ func createTasks(
 		} else {
 			jsonlogWriter, writerErr = nil, jsonLogDisabledErr
 		}
-		if writerErr != nil {
-			jlog(ERROR, &emptyTcpdumpJob, fmt.Sprintf("jsondump stdout writer creation failed: %s (%s)", ifaceAndIndex, writerErr))
-		} else {
+		if writerErr == nil {
 			pcapWriters = append(pcapWriters, jsonlogWriter)
 			jlog(INFO, &emptyTcpdumpJob, fmt.Sprintf("configured JSON 'stdout' writer for iface: %s", ifaceAndIndex))
+		} else if *jsonlog {
+			jlog(ERROR, &emptyTcpdumpJob, fmt.Sprintf("jsondump stdout writer creation failed: %s (%s)", ifaceAndIndex, writerErr))
 		}
 
+		// handle GAE JSON logger
 		gaeOutput := ""
 		if isGAE {
 			gaeOutput = fmt.Sprintf(gaeFileOutput, netIface.Index, netIface.Name)
@@ -321,11 +327,11 @@ func createTasks(
 		} else {
 			gaejsonWriter, writerErr = nil, gaeDisabledErr
 		}
-		if writerErr != nil {
-			jlog(ERROR, &emptyTcpdumpJob, fmt.Sprintf("jsondump GAE json writer creation failed: %s (%s)", ifaceAndIndex, gaeDisabledErr))
-		} else if gaejsonWriter != nil {
+		if writerErr == nil {
 			pcapWriters = append(pcapWriters, gaejsonWriter)
 			jlog(INFO, &emptyTcpdumpJob, fmt.Sprintf("configured GAE JSON '%s' writer for iface: %s", gaeOutput, ifaceAndIndex))
+		} else if isGAE {
+			jlog(ERROR, &emptyTcpdumpJob, fmt.Sprintf("jsondump GAE json writer creation failed: %s (%s)", ifaceAndIndex, gaeDisabledErr))
 		}
 
 		jlog(INFO, &emptyTcpdumpJob, fmt.Sprintf("configured 'jsondump' for iface: %s", ifaceAndIndex))
