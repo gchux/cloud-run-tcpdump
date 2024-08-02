@@ -29,8 +29,8 @@ github.com/deckarep/golang-set/v2 v2.6.0 h1:XfcQbWM1LlMB8BsJ8N9vW5ehnnPVIw0je80N
 github.com/deckarep/golang-set/v2 v2.6.0/go.mod h1:VAky9rY/yGXJOLEDv3OMci+7wtDpOF4IN+y82NBOac4=
 github.com/easyCZ/logrotate v0.3.0 h1:IYihLY2NKKPu9LjZWgxZATAKpzz5KLXSAuqJgDy++XU=
 github.com/easyCZ/logrotate v0.3.0/go.mod h1:noWLLQ0I45CRGXb9bGYuOcZXFE74fdgCldGPqz8txpU=
-github.com/gchux/pcap-cli v1.0.0-rc54 h1:2kg94FbdghzWafnXg+kSLPCAouMzwcgoI6+hRX4UEQ0=
-github.com/gchux/pcap-cli v1.0.0-rc54/go.mod h1:0wrLAXeUArAaez6Y/7yR9nmZbiCsyllusmxgy9v8Uc4=
+github.com/gchux/pcap-cli v1.0.0-rc55 h1:sXWSsy080UJXnCstZSL65p+axwOuzBTb0WstIzxq6Fs=
+github.com/gchux/pcap-cli v1.0.0-rc55/go.mod h1:0wrLAXeUArAaez6Y/7yR9nmZbiCsyllusmxgy9v8Uc4=
 github.com/go-co-op/gocron/v2 v2.5.0 h1:ff/TJX9GdTJBDL1il9cyd/Sj3WnS+BB7ZzwHKSNL5p8=
 github.com/go-co-op/gocron/v2 v2.5.0/go.mod h1:ckPQw96ZuZLRUGu88vVpd9a6d9HakI14KWahFZtGvNw=
 github.com/google/go-cmp v0.5.9 h1:O2Tfq5qg4qc4AmwVlvv0oLiVAGB7enBSJ2x2DqQFi38=
