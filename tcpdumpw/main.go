@@ -20,6 +20,7 @@ import (
 	"errors"
 	"flag"
 	"fmt"
+	"net"
 	"os"
 	"os/signal"
 	"regexp"
@@ -429,6 +430,12 @@ func main() {
 
 	// Start the packet capturing scheduler
 	s.Start()
+	tcpListener, tcpListenerErr := net.Listen("tcp", fmt.Sprintf(":%d", 12345))
+	if tcpListenerErr != nil {
+		jlog(ERROR, &emptyTcpdumpJob, fmt.Sprintf("failed to start the TCP listener: %v", err))
+		s.Shutdown()
+		os.Exit(4)
+	}
 
 	nextRun, _ := j.NextRun()
 	jlog(INFO, job, fmt.Sprintf("next execution: %v", nextRun))
@@ -441,10 +448,23 @@ func main() {
 		cancel()
 	}(job)
 
+	acceptConnections := true
+	go func() {
+		for acceptConnections {
+			conn, err := tcpListener.Accept()
+			if err != nil {
+				conn.Close()
+			}
+		}
+	}()
+
 	// Block main goroutine forever.
 	<-ctx.Done()
+
+	acceptConnections = false
 
 	s.StopJobs()
 	s.RemoveJob(j.ID())
 	s.Shutdown()
+	tcpListener.Close()
 }
