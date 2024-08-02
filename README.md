@@ -114,7 +114,7 @@ This approach assumes that Artifact Registry is available in `PROJECT_ID`.
      export TCPDUMP_SIDECAR_NAME='...'
      export TCPDUMP_IMAGE_URI='...'      # same as the one used to build the sidecar container image
      export PCAP_IFACE='eth'             # prefix of the interface in which packets should be captured from
-     export PCAP_GCS_BUCKET='...'             # the name of the Cloud Storage Bucket to mount
+     export PCAP_GCS_BUCKET='...'        # the name of the Cloud Storage Bucket to mount
      export PCAP_FILTER='...'            # the BPF filter to use; i/e: `tcp port 443`
      export PCAP_ROTATE_SECS='...'       # how often to rocate PCAP files; default is `60` seconds 
      export PCAP_SNAPSHOT_LENGTH='...'   # see: https://www.tcpdump.org/manpages/tcpdump.1.html#:~:text=%2D%2D-,snapshot%2Dlength,-%3Dsnaplen ; default is `0` bytes
