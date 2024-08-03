@@ -33,6 +33,7 @@ ENV GOARCH=amd64
 
 RUN gofumpt -l -w ./main.go
 RUN go mod tidy -compat=1.22.4
+RUN go mod download
 RUN go build -v -o /app/bin/${BIN_NAME}
 
 FROM scratch AS releaser
