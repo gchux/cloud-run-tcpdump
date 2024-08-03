@@ -14,7 +14,7 @@
 # limitations under the License.
 
 
-FROM --platform=linux/amd64 golang:1.22.4-bookworm AS build
+FROM --platform=linux/amd64 golang:1.22.4-bookworm AS builder
 
 ARG DEBIAN_FRONTEND=noninteractive
 ARG BIN_NAME=tcpdumpw
@@ -33,7 +33,8 @@ ENV GOARCH=amd64
 
 RUN gofumpt -l -w ./main.go
 RUN go mod tidy -compat=1.22.4
+RUN go mod download
 RUN go build -a -v -o /app/bin/${BIN_NAME} main.go
 
 FROM scratch AS releaser
-COPY --link --from=build /app/bin/${BIN_NAME} /
+COPY --link --from=builder /app/bin/${BIN_NAME} /
