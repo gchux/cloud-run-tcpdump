@@ -18,11 +18,22 @@ dotenv: ['.env']
 
 tasks:
 
+  update-gitmodules:
+    cmds:
+      - git submodule update --recursive --remote ../pcap-cli
+
   docker-build:
     cmds:
+      - task: update-gitmodules
       - >-
-        docker buildx build --no-cache --file=Dockerfile
-        --output={{.USER_WORKING_DIR}}/bin --target=releaser {{.USER_WORKING_DIR}}
+        docker buildx build
+        --platform=linux/amd64
+        --no-cache --file=Dockerfile
+        --build-arg="BIN_NAME=$TCPDUMPW_BIN_NAME"
+        --output={{.USER_WORKING_DIR}}
+        --target=releaser {{.USER_WORKING_DIR}}
+    sources:
+      - ./main.go
 
   go-fmt:
     cmds:
@@ -31,10 +42,6 @@ tasks:
   go-gen:
     cmds:
       - go generate ./...
-
-  update-gitmodules:
-    cmds:
-      - git submodule update --recursive --remote ../pcap-cli
 
   local-build:
     dotenv: ['.env']
@@ -48,6 +55,8 @@ tasks:
         -o bin/$TCPDUMPW_BIN_NAME
         {{if .VERBOSE}}-v -a{{end}}
         main.go
+    sources:
+      - ./main.go
 
   local-dist:
     cmds:
