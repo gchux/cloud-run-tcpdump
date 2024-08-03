@@ -17,10 +17,12 @@
 FROM --platform=linux/amd64 golang:1.22.4-bookworm AS build
 
 ARG DEBIAN_FRONTEND=noninteractive
+ARG BIN_NAME=tcpdumpw
 
 WORKDIR /app
 
 RUN apt-get -qq update > /dev/null && apt-get install -qq -y libpcap-dev && apt-get -qq clean > /dev/null
+RUN go install mvdan.cc/gofumpt@latest
 
 COPY ./go.mod go.mod
 COPY ./go.sum go.sum
@@ -29,7 +31,9 @@ COPY ./main.go main.go
 ENV GOOS=linux
 ENV GOARCH=amd64
 
-RUN go build -a -v -o /app/tcpdumpw main.go
+RUN gofumpt -l -w ./main.go
+RUN go mod tidy -compat=1.22.4
+RUN go build -a -v -o /app/bin/${BIN_NAME} main.go
 
 FROM scratch AS releaser
-COPY --link --from=build /app/tcpdumpw /
+COPY --link --from=build /app/bin/${BIN_NAME} /

@@ -21,14 +21,20 @@ tasks:
   docker-build:
     cmds:
       - >-
-        docker buildx build --no-cache --file=Dockerfile
-        --output={{.USER_WORKING_DIR}}/bin --target=releaser {{.USER_WORKING_DIR}}
+        docker buildx build
+        --platform=linux/amd64
+        --no-cache --file=Dockerfile
+        --build-arg="BIN_NAME=$PCAP_FSN_BIN_NAME"
+        --output={{.USER_WORKING_DIR}}
+        --target=releaser {{.USER_WORKING_DIR}}
+    sources:
+      - ./main.go
 
   go-fmt:
     cmds:
-      - gofumpt -l -w .
+      - gofumpt -l -w ./main.go
 
-  local-build:
+  build:
     dotenv: ['.env']
     cmds:
       - task: go-fmt
@@ -37,6 +43,8 @@ tasks:
         -o bin/$PCAP_FSN_BIN_NAME
         {{if .VERBOSE}}-v -a{{end}}
         main.go
+    sources:
+      - ./main.go
 
   local-dist:
     cmds:

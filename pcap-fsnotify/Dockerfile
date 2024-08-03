@@ -14,7 +14,10 @@
 # limitations under the License.
 
 
-FROM --platform=linux/amd64 golang:1.22.4-bookworm AS build
+FROM --platform=linux/amd64 golang:1.22.4-bookworm AS builder
+
+ARG DEBIAN_FRONTEND=noninteractive
+ARG BIN_NAME=pcap_fsn
 
 WORKDIR /app
 
@@ -22,11 +25,15 @@ COPY ./go.mod go.mod
 COPY ./go.sum go.sum
 COPY ./main.go main.go
 
+RUN go install mvdan.cc/gofumpt@latest
+
 ENV CGO_ENABLED=0
 ENV GOOS=linux
 ENV GOARCH=amd64
 
-RUN go build -v -o /app/pcap_fsn
+RUN gofumpt -l -w ./main.go
+RUN go mod tidy -compat=1.22.4
+RUN go build -v -o /app/bin/${BIN_NAME}
 
 FROM scratch AS releaser
-COPY --link --from=build /app/pcap_fsn /
+COPY --link --from=builder /app/bin/${BIN_NAME} /bin/
