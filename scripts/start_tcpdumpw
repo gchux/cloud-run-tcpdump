@@ -24,4 +24,5 @@ exec env /bin/tcpdumpw \
     -ordered=${PCAP_ORDERED:-false} \
     -conntrack=${PCAP_CONNTRACK:-false} \
     -snaplen=${PCAP_SNAPLEN:-0} \
-    -filter="${PCAP_FILTER}"
+    -filter="${PCAP_FILTER}" \
+    -hc_port="${PCAP_HC_PORT:-12345}"

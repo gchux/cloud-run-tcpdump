@@ -58,6 +58,7 @@ var (
 	conntrack  = flag.Bool("conntrack", false, "enable connection tracking ('ordered' is also enabled)")
 	gcp_gae    = flag.Bool("gae", false, "enable GAE Flex environment configuration")
 	pcap_iface = flag.String("iface", "", "prefix to scan for network interfaces to capture from")
+	hc_port    = flag.Uint("hc_port", 12345, "TCP port for health checking")
 )
 
 var (
@@ -65,6 +66,7 @@ var (
 	sidecarEnvVar     string = os.Getenv("APP_SIDECAR")
 	moduleEnvVar      string = os.Getenv("PROC_NAME")
 	gaeEnvVar         string = os.Getenv("GCP_GAE")
+	hcPortEnvVar      string = os.Getenv("PCAP_HC_PORT")
 )
 
 var (
@@ -341,6 +343,32 @@ func createTasks(
 	return tasks
 }
 
+func startTCPListener(ctx context.Context, port *uint, stopChannel chan<- bool) {
+	tcpListener, tcpListenerErr := net.Listen("tcp", fmt.Sprintf(":%d", *port))
+
+	if tcpListenerErr != nil {
+		jlog(ERROR, &emptyTcpdumpJob, fmt.Sprintf("failed to start the TCP listener: %v", tcpListenerErr))
+		os.Exit(4)
+	}
+
+	for {
+		select {
+		case <-ctx.Done():
+			var err error
+			if err = tcpListener.Close(); err != nil {
+				jlog(ERROR, &emptyTcpdumpJob, fmt.Sprintf("failed to stop the TCP listener: %v", err))
+			}
+			stopChannel <- (err == nil)
+			return
+		default:
+			conn, err := tcpListener.Accept()
+			if err != nil {
+				conn.Close()
+			}
+		}
+	}
+}
+
 func main() {
 	flag.Parse()
 
@@ -364,13 +392,28 @@ func main() {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
-	// Skip scheduling, execute `tcpdump`
+	// create empty job: used if CRON is not enabled
+	job := &tcpdumpJob{Jid: uuid.Nil.String(), tasks: tasks}
+
+	signals := make(chan os.Signal, 1)
+	signal.Notify(signals, os.Interrupt, syscall.SIGTERM, syscall.SIGINT)
+	go func() {
+		signal := <-signals
+		jlog(INFO, job, fmt.Sprintf("signaled: %v", signal))
+		cancel()
+	}()
+
+	// receives status of TCP listener termination: `true` means successful
+	tcpStopChannel := make(chan bool, 1)
+
+	// Skip scheduling, execute `tcpdump` immediately
 	if !*use_cron {
 		id := uuid.New().String()
 		ctx = context.WithValue(ctx, pcap.PcapContextID, id)
 		logName := fmt.Sprintf("projects/%s/pcaps/%s", os.Getenv("PROJECT_ID"), id)
 		ctx = context.WithValue(ctx, pcap.PcapContextLogName, logName)
-		job := &tcpdumpJob{Jid: uuid.Nil.String(), tasks: tasks}
+		// start the TCP listener for health checks
+		go startTCPListener(ctx, hc_port, tcpStopChannel)
 		start(ctx, timeout, job)
 		return
 	}
@@ -423,7 +466,8 @@ func main() {
 
 	jid.Store(j.ID())
 
-	job := &tcpdumpJob{
+	// redefine default `job` with the scheduled one
+	job = &tcpdumpJob{
 		ctx:   ctx,
 		tasks: tasks,
 		Jid:   j.ID().String(),
@@ -436,41 +480,22 @@ func main() {
 
 	// Start the packet capturing scheduler
 	s.Start()
-	tcpListener, tcpListenerErr := net.Listen("tcp", fmt.Sprintf(":%d", 12345))
-	if tcpListenerErr != nil {
-		jlog(ERROR, &emptyTcpdumpJob, fmt.Sprintf("failed to start the TCP listener: %v", err))
-		s.Shutdown()
-		os.Exit(4)
-	}
 
 	nextRun, _ := j.NextRun()
 	jlog(INFO, job, fmt.Sprintf("next execution: %v", nextRun))
 
-	signals := make(chan os.Signal, 1)
-	signal.Notify(signals, os.Interrupt, syscall.SIGTERM, syscall.SIGINT)
-	go func(job *tcpdumpJob) {
-		signal := <-signals
-		jlog(INFO, job, fmt.Sprintf("signaled: %v", signal))
-		cancel()
-	}(job)
+	// start the TCP listener for health checks
+	go startTCPListener(ctx, hc_port, tcpStopChannel)
 
-	acceptConnections := true
-	go func() {
-		for acceptConnections {
-			conn, err := tcpListener.Accept()
-			if err != nil {
-				conn.Close()
-			}
-		}
-	}()
-
-	// Block main goroutine forever.
+	// Block main goroutine until a signal is received
 	<-ctx.Done()
-
-	acceptConnections = false
 
 	s.StopJobs()
 	s.RemoveJob(j.ID())
 	s.Shutdown()
-	tcpListener.Close()
+
+	// wait for TCP listener to be terminated
+	if ok := <-tcpStopChannel; !ok {
+		os.Exit(5)
+	}
 }

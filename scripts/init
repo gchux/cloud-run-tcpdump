@@ -90,6 +90,7 @@ echo "PCAP_JSONDUMP=${PCAP_JSONDUMP}" >> ${ENV_FILE}
 echo "PCAP_JSONDUMP_LOG=${PCAP_JSONDUMP_LOG}" >> ${ENV_FILE}
 
 echo "PCAP_IFACE=${PCAP_IFACE:-eth}" >> ${ENV_FILE}
+echo "PCAP_HC_PORT=${PCAP_HC_PORT:-12345}" >> ${ENV_FILE}
 
 # Create both paths to store PCAP files
 mkdir -p ${PCAP_MNT}
