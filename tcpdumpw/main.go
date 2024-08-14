@@ -360,6 +360,8 @@ func startTCPListener(ctx context.Context, port *uint, stopChannel chan<- bool) 
 			}
 			stopChannel <- (err == nil)
 			return
+
+		// accept connections until context is done
 		default:
 			conn, err := tcpListener.Accept()
 			if err != nil {
@@ -376,8 +378,8 @@ func main() {
 	xid.Store(uuid.Nil)
 
 	jlog(INFO, &emptyTcpdumpJob,
-		fmt.Sprintf("args[iface:%s|use_cron:%t|cron_exp:%s|timezone:%s|timeout:%d|extension:%s|directory:%s|snaplen:%d|filter:%s|interval:%d|tcpdump:%t|jsondump:%t|jsonlog:%t|ordered:%t|gcp_gae:%t]",
-			*pcap_iface, *use_cron, *cron_exp, *timezone, *duration, *extension, *directory, *snaplen, *filter, *interval, *tcp_dump, *json_dump, *json_log, *ordered, *gcp_gae))
+		fmt.Sprintf("args[iface:%s|use_cron:%t|cron_exp:%s|timezone:%s|timeout:%d|extension:%s|directory:%s|snaplen:%d|filter:%s|interval:%d|tcpdump:%t|jsondump:%t|jsonlog:%t|ordered:%t|hc_port:%d|gcp_gae:%t]",
+			*pcap_iface, *use_cron, *cron_exp, *timezone, *duration, *extension, *directory, *snaplen, *filter, *interval, *tcp_dump, *json_dump, *json_log, *ordered, *hc_port, *gcp_gae))
 
 	tasks := createTasks(pcap_iface, timezone, directory, extension, filter, snaplen, interval, tcp_dump, json_dump, json_log, ordered, conntrack, gcp_gae)
 
@@ -495,7 +497,9 @@ func main() {
 	s.Shutdown()
 
 	// wait for TCP listener to be terminated
-	if ok := <-tcpStopChannel; !ok {
+	isTCPstopOK := <-tcpStopChannel
+	if !isTCPstopOK {
+		// signal unclean termination
 		os.Exit(5)
 	}
 }

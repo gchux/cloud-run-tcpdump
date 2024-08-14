@@ -2,10 +2,10 @@ module github.com/gchux/cloud-run-tcpdump/tcpdumpw
 
 go 1.22.4
 
-// replace github.com/gchux/pcap-cli v1.0.0-rc58 => ../pcap-cli
+// replace github.com/gchux/pcap-cli v1.0.0-rc63 => ../pcap-cli
 
 require (
-	github.com/gchux/pcap-cli v1.0.0-rc58
+	github.com/gchux/pcap-cli v1.0.0-rc63
 	github.com/go-co-op/gocron/v2 v2.5.0
 	github.com/google/uuid v1.6.0
 	github.com/lrita/cmap v0.0.0-20231108122212-cb084a67f554
@@ -41,6 +41,7 @@ require (
 	github.com/zhangyunhao116/skipmap v0.10.1 // indirect
 	golang.org/x/crypto v0.0.0-20210921155107-089bfa567519 // indirect
 	golang.org/x/exp v0.0.0-20240416160154-fe59bbe5cc7f // indirect
+	golang.org/x/net v0.6.0 // indirect
 	golang.org/x/sync v0.7.0 // indirect
 	golang.org/x/sys v0.16.0 // indirect
 	golang.org/x/term v0.16.0 // indirect

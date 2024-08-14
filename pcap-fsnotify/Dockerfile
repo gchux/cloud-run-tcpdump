@@ -37,4 +37,4 @@ RUN go mod download
 RUN go build -v -o /app/bin/${BIN_NAME}
 
 FROM scratch AS releaser
-COPY --link --from=builder /app/bin/${BIN_NAME} /bin/
+COPY --link --from=builder /app/bin/${BIN_NAME} /
