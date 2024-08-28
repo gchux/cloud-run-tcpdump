@@ -166,7 +166,7 @@ The `tcpdump` sidecar accespts the following environment variables:
 
 -    `PCAP_COMPRESS`: (BOOLEAN, *optional*) whether to compress **PCAP files** or not; default value is `true`.
 
--    `PCAP_TCPDUMP`: (BOOLEAN, *required*) whether to use `tcpdump` or not ( `tcpdump` will generate pcap files, if not `PCAP_JSON` must be enabled ) and push thos `.pcap` files to GCS ; default valie is `true`.
+-    `PCAP_TCPDUMP`: (BOOLEAN, *required*) whether to use `tcpdump` or not ( `tcpdump` will generate pcap files, if not `PCAP_JSON` must be enabled ) and push thos `.pcap` files to GCS; default valie is `true`.
 
 -    `PCAP_JSON`: (BOOLEAN, *optional*) whether to use `JSON` to dump packets or not into GCS ; default value is `false`.
 
@@ -179,6 +179,8 @@ The `tcpdump` sidecar accespts the following environment variables:
 -    `PCAP_ORDERED`: (BOOLEAN, *optional*) when `PCAP_JSON` or `PCAP_JSON_LOG` are enabled, wheter to print packets in captured order ( if set to `false`, packet will be written as fast as possible ); default value is `false`.
 
      >    In order to improve performance, packets are translated and written concurrently; when `PCAP_ORDERED` is enabled, only translations are performed concurrently. Enabling `PCAP_ORDERED` may cause packet capturing to be slower, so it is recommended to keep it disabled as all translated packets have a `pcap.num` property to assert order.
+
+-    `PCAP_HC_PORT`: (NUMBER, *optional*) the TCP port that should be used to accept startup probes; connections will only be accepted when packet capturing is ready; default value is `12345`.
 
 ### Advanced configurations
 
