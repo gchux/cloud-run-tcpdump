@@ -161,7 +161,7 @@ This approach assumes that Artifact Registry is available in `PROJECT_ID`.
        --set-env-vars="PCAP_IFACE=${PCAP_IFACE},PCAP_GCS_BUCKET=${PCAP_GCS_BUCKET},PCAP_FILTER=${PCAP_FILTER},PCAP_JSON_LOG=${PCAP_JSON_LOG} \
      ```
 
->    See the full list of available falgs for `gcloud run deploy` at https://cloud.google.com/sdk/gcloud/reference/run/deploy
+>    See the full list of available flags for `gcloud run deploy` at https://cloud.google.com/sdk/gcloud/reference/run/deploy
 
 3. All containers need to depend on the `tcpdump` sidecar, but this configuration is not available via gcloud due to needing to configure healthchecks for the sidecar container. To make all containers depend on the `tcpdump` sidecar, edit the Cloud Run service via the Cloud Console and make all other containers depend on the `tcpdump` sidecar and add the following TCP startup probe healthcheck to the `tcpdump` sidecar:
 
