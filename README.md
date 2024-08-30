@@ -53,7 +53,8 @@ The sidecar uses:
      git clone --depth=1 --branch=main --single-branch https://github.com/gchux/cloud-run-tcpdump.git
      ```
 
-     >    If you prefer to let Cloud Build perform all the tasks, go directly to build [using Cloud Build](#using-cloud-build)
+> [!TIP]
+> If you prefer to let Cloud Build perform all the tasks, go directly to build [using Cloud Build](#using-cloud-build)
 
 3. Move into the repository local directory: `cd cloud-run-tcpdump`.
 
@@ -129,7 +130,7 @@ This approach assumes that Artifact Registry is available in `PROJECT_ID`.
      export SERVICE_NAME='...'           # Cloud Run or App Engine Flex service name
      export SERVICE_REGION='...'         # GCP Region: https://cloud.google.com/about/locations
      export SERVICE_ACCOUNT='...'        # Cloud Run service's identity
-     export INGRESS_CONTAINER_NAME='...'
+     export INGRESS_CONTAINER_NAME='...' # the name of the ingress container i/e: `app`
      export INGRESS_IMAGE_URI='...'
      export INGRESS_PORT='...'
      export TCPDUMP_SIDECAR_NAME='...'
@@ -137,33 +138,43 @@ This approach assumes that Artifact Registry is available in `PROJECT_ID`.
      export PCAP_IFACE='eth'             # prefix of the interface in which packets should be captured from
      export PCAP_GCS_BUCKET='...'        # the name of the Cloud Storage Bucket to mount
      export PCAP_FILTER='...'            # the BPF filter to use; i/e: `tcp port 443`
-     export PCAP_ROTATE_SECS='...'       # how often to rocate PCAP files; default is `60` seconds 
-     export PCAP_SNAPSHOT_LENGTH='...'   # see: https://www.tcpdump.org/manpages/tcpdump.1.html#:~:text=%2D%2D-,snapshot%2Dlength,-%3Dsnaplen ; default is `0` bytes
-     export PCAP_TCPDUMP=true
-     export PCAP_JSON=true
-     export PCAP_JSON_LOG=true           # set to `true` for writting structured logs into Cloud Logging
-     export PCAP_ORDERED=false           
+     export PCAP_JSON_LOG=true           # set to `true` for writting structured logs into Cloud Logging         
      ```
 
 2. Deploy the Cloud Run service including the `tcpdump` sidecar:
 
+> [!NOTE]  
+> If adding the `tcpdump` sidecar to a preexisting Cloud Run service that is a single container service the gcloud command will fail. You will need to instead make these updates via the Cloud Console or create a new Cloud Run service.
+
      ```sh
-     gcloud beta run deploy ${SERVICE_NAME} \
+     gcloud run deploy ${SERVICE_NAME} \
        --project=${PROJECT_ID} \
        --region=${SERVICE_REGION} \
        --execution-environment=gen2 \ # execution environment gen2 is mandatory
        --service-account=${SERVICE_ACCOUNT} \
-       --container=${INGRESS_CONTAINER_NAME}-1 \
+       --container=${INGRESS_CONTAINER_NAME} \
        --image=${INGRESS_IMAGE_URI} \
        --port=${INGRESS_PORT} \
-       --container=${TCPDUMP_SIDECAR_NAME}-1 \
+       --container=${TCPDUMP_SIDECAR_NAME} \
        --image=${TCPDUMP_IMAGE_URI} \
        --cpu=1 --memory=1G \
-       --set-env-vars="PCAP_IFACE=${PCAP_IFACE},PCAP_GCS_BUCKET=${PCAP_GCS_BUCKET},PCAP_FILTER=${PCAP_FILTER},PCAP_ROTATE_SECS=${PCAP_ROTATE_SECS},PCAP_SNAPSHOT_LENGTH=${PCAP_SNAPSHOT_LENGTH}" \
-       --depends-on=${INGRESS_CONTAINER_NAME}-1
+       --set-env-vars="PCAP_IFACE=${PCAP_IFACE},PCAP_GCS_BUCKET=${PCAP_GCS_BUCKET},PCAP_FILTER=${PCAP_FILTER},PCAP_JSON_LOG=${PCAP_JSON_LOG} \
      ```
 
 >    See the full list of available falgs for `gcloud run deploy` at https://cloud.google.com/sdk/gcloud/reference/run/deploy
+
+3. All containers need to depend on the `tcpdump` sidecar, but this configuration is not available via gcloud due to needing to configure healthchecks for the sidecar container. To make all containers depend on the `tcpdump` sidecar, edit the Cloud Run service via the Cloud Console and make all other containers depend on the `tcpdump` sidecar and add the following TCP startup probe healthcheck to the `tcpdump` sidecar:
+
+```
+startupProbe:
+ timeoutSeconds: 1
+ periodSeconds: 10
+ failureThreshold: 10
+ tcpSocket:
+   port: 12345
+```
+
+>    You can optionally choose a different port by setting `PCAP_HC_PORT` as an env var of the `tcpdump` sidecar
 
 ## Available configurations
 
@@ -177,7 +188,7 @@ The `tcpdump` sidecar accespts the following environment variables:
 
 -    `PCAP_FILTER`: (STRING, **required**) standard `tcpdump` bpf filters to scope the packet capture to specific traffic; i/e: `tcp`.
 
--    `PCAP_SNAPSHOT_LENGTH`: (NUMBER, *optional*) bytes of data from each packet rather than the default of 262144 bytes; default value is `0`.
+-    `PCAP_SNAPSHOT_LENGTH`: (NUMBER, *optional*) bytes of data from each packet rather than the default of 262144 bytes; default value is `0`. See https://www.tcpdump.org/manpages/tcpdump.1.html#:~:text=%2D%2D-,snapshot%2Dlength,-%3Dsnaplen
 
 -    `PCAP_ROTATE_SECS`: (NUMBER, *optional*) how often to rotate **PCAP files** created by `tcpdump`; default value is `60` seconds.
 
