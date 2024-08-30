@@ -14,7 +14,7 @@ This container image is to be used as a sidecar of the Cloud Run main –*ingres
 
 The sidecar approach enables decoupling from the main –*ingress*– container so that it does not require any modifications to perform a packet capture; additionally, sidecars use their own resources which allows `tcpdump` to not compete with the main app resources allocation.
 
-> **NOTE**: the main –*ingres*– container is the one to which all ingress traffic ( HTTP Requests ) is delivered to; for Cloud Run services, this is typically your APP container.
+> **NOTE**: the main –*ingress*– container is the one to which all ingress traffic ( HTTP Requests ) is delivered to; for Cloud Run services, this is typically your APP container.
 
 ## Building blocks
 
@@ -86,7 +86,7 @@ This approach assumes that Artifact Registry is available in `PROJECT_ID`.
      export REPO_NAME='...' # Artifact Registry Docker repository name
      export IMAGE_NAME='...' # container image name; i/e: `sidecars/tcpdump` 
      export IMAGE_TAG='...' # container image version; i/e: `latest`
-     export TCPDUMP_IMAGE_URI="${REPO_LOCATION}-docker.pkg.dev/${PROJECT_ID}/${IMAGE_NAME}:${IMAGE_VERSION}" # using Artifact Registry
+     export TCPDUMP_IMAGE_URI="${REPO_LOCATION}-docker.pkg.dev/${PROJECT_ID}/${REPO_NAME}/${IMAGE_NAME}:${IMAGE_TAG}" # using Artifact Registry
      ```
 
 5. Build and push the `tcpdump` sidecar container image using Cloud Build: 
@@ -99,6 +99,27 @@ This approach assumes that Artifact Registry is available in `PROJECT_ID`.
      ```
 
 >    See the full list of available flags for `gcloud builds submit`: https://cloud.google.com/sdk/gcloud/reference/builds/submit
+
+## Pulling the pre-built image
+
+1. Start by setting the following environment variables:
+
+     ```sh
+     export PROJECT_ID='...' # GCP Project ID
+     export REPO_LOCATION='...' # Artifact Registry Docker repository location
+     export REPO_NAME='...' # Artifact Registry Docker repository name
+     export IMAGE_NAME='...' # container image name; i/e: `sidecars/tcpdump` 
+     export IMAGE_TAG='...' # container image version; i/e: `latest`
+     export TCPDUMP_IMAGE_URI="${REPO_LOCATION}-docker.pkg.dev/${PROJECT_ID}/${REPO_NAME}/${IMAGE_NAME}:${IMAGE_TAG}" # using Artifact Registry
+     ```
+
+1. Next run the following Docker commands to pull the image, tag it, and push it to Artifact Registry:
+
+     ```sh
+     docker pull ghcr.io/gchux/cloud-run-tcpdump:latest
+     docker tag ghcr.io/gchux/cloud-run-tcpdump:latest ${TCPDUMP_IMAGE_URI}
+     docker push ${TCPDUMP_IMAGE_URI}
+     ```
 
 ## How to deploy to Cloud Run
 
