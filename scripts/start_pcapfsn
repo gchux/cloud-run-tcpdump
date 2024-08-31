@@ -1,17 +1,18 @@
 #!/usr/bin/env bash
 
 while : ; do
-    [[ -d ${PCAP_DIR} ]] && break
-    echo "{\"severity\":\"WARNING\",\"message\":\"PCAP files directory is not available: ${PCAP_DIR}\",\"sidecar\":\"${RUN_SIDECAR}\",\"module\":\"${PROC_NAME}\"}"
+[[ -d ${PCAP_DIR} ]] && break
+    echo "{\"severity\":\"WARNING\",\"message\":\"PCAP files directory is not available: ${PCAP_DIR}\",\"sidecar\":\"${APP_SIDECAR}\",\"module\":\"${PROC_NAME}\"}"
     sleep 1
 done
-
-set -x
 
 if [ "$PCAP_JSONDUMP" = true ] ; then
     PCAP_EXT="${PCAP_EXT},json"
 fi
 
+set -x
+
+# `exec` allows `/bin/pcap_fsn` to receive signals directly
 exec env /bin/pcap_fsn \
     -src_dir=${PCAP_TMP} \
     -gcs_dir=${PCAP_DIR} \

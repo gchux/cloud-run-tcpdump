@@ -1,16 +1,18 @@
 #!/usr/bin/env bash
 
 while : ; do
-    pcapfsn_ready=$(ps -efa | grep '/pcap_fsn' | grep -v grep | wc -l  | tr -d '\n')
+    pcapfsn_ready=$(ps -efa | grep --color=never '/pcap_fsn' | grep --color=never -v grep | wc -l  | tr -d '\n')
     [[ "${pcapfsn_ready}" == '1' ]] && break
-    echo "{\"severity\":\"WARNING\",\"message\":\"PCAP FS notifier is not running\",\"sidecar\":\"${RUN_SIDECAR}\",\"module\":\"${PROC_NAME}\"}"
+    echo "{\"severity\":\"WARNING\",\"message\":\"PCAP FS notifier is not running\",\"sidecar\":\"${APP_SIDECAR}\",\"module\":\"${PROC_NAME}\"}"
     sleep 1
 done
 
 set -x
 
+# `exec` allows `/bin/tcpdumpw` to receive signals directly
 exec env /bin/tcpdumpw \
     -gae=${PCAP_GAE} \
+    -iface="${PCAP_IFACE:-eth}" \
     -use_cron=${PCAP_USE_CRON:-false} \
     -cron_exp="${PCAP_CRON_EXP:--}" \
     -timezone="${PCAP_TZ:-UTC}" \

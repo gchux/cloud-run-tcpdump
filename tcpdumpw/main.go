@@ -398,7 +398,7 @@ func main() {
 	job := &tcpdumpJob{Jid: uuid.Nil.String(), tasks: tasks}
 
 	signals := make(chan os.Signal, 1)
-	signal.Notify(signals, os.Interrupt, syscall.SIGTERM, syscall.SIGINT)
+	signal.Notify(signals, syscall.SIGTERM, syscall.SIGINT, syscall.SIGHUP, syscall.SIGQUIT)
 	go func() {
 		signal := <-signals
 		jlog(INFO, job, fmt.Sprintf("signaled: %v", signal))

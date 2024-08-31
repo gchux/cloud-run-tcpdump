@@ -98,4 +98,11 @@ mkdir -p ${PCAP_TMP}
 
 echo "[INFO] - PCAP files available at: gs://${PCAP_GCS_BUCKET}/${GCS_DIR}"
 
-/bin/supervisord --configuration=/tcpdump.conf --env-file=${ENV_FILE}
+trap 'kill -TERM $PCAP_PID' TERM INT
+/bin/supervisord --configuration=/tcpdump.conf --env-file=${ENV_FILE} &
+export PCAP_PID=$!
+echo "[INFO] – PCAP sidecar started w/PID: ${PCAP_PID}"
+wait ${PCAP_PID}
+trap - TERM INT
+wait ${PCAP_PID}
+echo "[INFO] – PCAP sidecar ( PID: ${PCAP_PID} ) exited"
