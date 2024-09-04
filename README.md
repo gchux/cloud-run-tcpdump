@@ -262,7 +262,9 @@ More advanced use cases may benefit from scheduling `tcpdump` executions. Use th
 
 -    In order to be able to mount the Cloud Storage Bucket and store **PCAP files**, [Cloud Run's identity](https://cloud.google.com/run/docs/securing/service-identity) must have proper [roles/permissions](https://cloud.google.com/storage/docs/access-control/iam-permissions).
 
--    The `tcpdump` sidecar is intended to be used for troubleshooting purposes only. While the `tcpdump` sidecar has its own set of resources, storing bytes from **PCAP files** in Cloud Storage introduces additional costs ( for both Storage and Networking ).
+-    The `tcpdump` sidecar is intended to be used for troubleshooting purposes only. While the `tcpdump` sidecar has its own set of resources, storing bytes from **PCAP files** in Cloud Storage and logging packet translations into Cloud Logging introduces additional costs for both Storage and Networking.
+
+     -    Define a BPF filter to capture just the required packets, and nothing else; examples of bad filters for long running or data intensive tests: `tcp`, `tcp or udp`, `tcp port 443`, etc...
 
      -    Set `PCAP_COMPRESS` to `true` to store compressed **PCAP files** and save storage bytes; additionally, use regional Buckets to minize costs.
 
