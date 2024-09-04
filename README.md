@@ -108,11 +108,11 @@ This approach assumes that Artifact Registry is available in `PROJECT_ID`.
 1. Start by setting the following environment variables:
 
      ```sh
-     export PROJECT_ID='...' # GCP Project ID
+     export PROJECT_ID='...'    # GCP Project ID
      export REPO_LOCATION='...' # Artifact Registry Docker repository location
-     export REPO_NAME='...' # Artifact Registry Docker repository name
-     export IMAGE_NAME='...' # container image name; i/e: `sidecars/tcpdump` 
-     export IMAGE_TAG='...' # container image version; i/e: `latest`
+     export REPO_NAME='...'     # Artifact Registry Docker repository name
+     export IMAGE_NAME='...'    # container image name; i/e: `sidecars/tcpdump` 
+     export IMAGE_TAG='...'     # container image version; i/e: `latest`
      export TCPDUMP_IMAGE_URI="${REPO_LOCATION}-docker.pkg.dev/${PROJECT_ID}/${REPO_NAME}/${IMAGE_NAME}:${IMAGE_TAG}" # using Artifact Registry
      ```
 
