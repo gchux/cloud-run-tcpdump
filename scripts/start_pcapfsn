@@ -18,4 +18,5 @@ exec env /bin/pcap_fsn \
     -gcs_dir=${PCAP_DIR} \
     -pcap_ext="${PCAP_EXT}" \
     -gzip=${PCAP_GZIP} \
+    -interval=${PCAP_SECS:-60} \
     -gae=${PCAP_GAE}
