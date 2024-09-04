@@ -33,9 +33,11 @@ The sidecar approach enables decoupling from the main –*ingress*– container 
 
 The sidecar uses:
 
--    **`tcpdump`** to capture packets. All containers use the same network namestap and so this sidecar captures packets from all containers within the same deployment.
+-    **`tcpdump`**/**`pcap-cli`** to capture packets in both wireshark compatible format and `JSON`. All containers use the same network namespace and so this sidecar captures packets from all containers within the same instance.
 
--    [**`tcpdumpw`**](tcpdumpw/main.go) to execute `tcpdump` and generate **PCAP files**; optionally, schedule recurring `tcpdump` executions.
+-    [**`pcap-cli`**](https://github.com/gchux/pcap-cli) allows to perform packet translations into [Cloud Logging compatible structured `JSON`](https://cloud.google.com/logging/docs/structured-logging). It also provides `HTTP/1.1` and `HTTP/2` analysis, including [Trace context](https://cloud.google.com/trace/docs/trace-context) awareness (`X-Cloud-Trace-Context`/`traceparenmt`) to hydrate structured logging with trace information which allows rich network data analysis using [Cloud Trace](https://cloud.google.com/trace/docs/overview).
+
+-    [**`tcpdumpw`**](tcpdumpw/main.go) to execute `tcpdump`/[`pcap-cli`](https://github.com/gchux/pcap-cli) and generate **PCAP files**; optionally, schedules `tcpdump`/`pcap-cli` executions.
 
 -    [**`pcap-fsnotify`**](pcap-fsnotify/main.go) to listen for newly created **PCAP files**, optionally compress PCAPs ( _**recommended**_ ) and move them into Cloud Storage mount point.
 
