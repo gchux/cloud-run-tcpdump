@@ -280,7 +280,7 @@ More advanced use cases may benefit from scheduling `tcpdump` executions. Use th
 
 -    Use scheduled packet capturing ( `PCAP_USE_CRON` and other advanced flags ) if you don't need to capture packets 100% of instance runtime as it will reduce the number of `PCAP files`.
 
-     >    **NOTE**: this sidecar is subject to [Cloud Run CPU allocation](https://cloud.google.com/run/docs/configuring/cpu-allocation) configuration; so if the revision is configured to only allocate CPU during request processing, then CPU will also be throttled for the sidecar. This means that when CPU is only allocated during requesr processing, no packet capturing will happen outside request processing. 
+     >    **NOTE**: this sidecar is subject to [Cloud Run CPU allocation](https://cloud.google.com/run/docs/configuring/cpu-allocation) configuration; so if the revision is configured to only allocate CPU during request processing, then CPU will also be throttled for the sidecar. This means that when CPU is only allocated during request processing, no packet capturing will happen outside request processing; the same applies for `PCAP files` export into Cloud Storage.
 
 ## Download and Merge all PCAP Files
 
