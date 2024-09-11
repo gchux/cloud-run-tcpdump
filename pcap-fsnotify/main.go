@@ -393,7 +393,7 @@ func main() {
 				if event.Has(fsnotify.Create) && pcapDotExt.MatchString(event.Name) {
 					wg.Add(1)
 					exportPcapFile(wg, pcapDotExt, &event.Name, *gzip_pcaps /* compress */, true /* delete */, false /* flush */)
-				} else if event.Has(fsnotify.Create) && tcpdumpwExitSignal.MatchString(event.Name) {
+				} else if event.Has(fsnotify.Create) && tcpdumpwExitSignal.MatchString(event.Name) && isActive.CompareAndSwap(true, false) {
 					// `tcpdumpw` wignals its termination by creating the file `TCPDUMPW_EXITED` is the source directory
 					tcpdumpwExitTS := time.Now()
 					sugar.Infow("detected 'tcpdumpw' termination signal",
@@ -483,9 +483,11 @@ func main() {
 			})
 
 		time.AfterFunc(3*time.Second, func() {
-			// cancel then context after 3s regardless of `tcpdumpw` termination signal:
-			//   - this is effectively the `max_wait_time` for `tcpdumpw` termination signal.
-			cancel()
+			if isActive.CompareAndSwap(true, false) {
+				// cancel then context after 3s regardless of `tcpdumpw` termination signal:
+				//   - this is effectively the `max_wait_time` for `tcpdumpw` termination signal.
+				cancel()
+			}
 		})
 	}(watcher, ticker)
 
