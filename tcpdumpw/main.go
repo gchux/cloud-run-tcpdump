@@ -33,10 +33,10 @@ import (
 	// _ "net/http/pprof"
 	_ "time/tzdata"
 
+	"github.com/alphadose/haxmap"
 	"github.com/gchux/pcap-cli/pkg/pcap"
 	"github.com/go-co-op/gocron/v2"
 	"github.com/google/uuid"
-	"github.com/lrita/cmap"
 )
 
 func UNUSED(x ...interface{}) {}
@@ -61,29 +61,11 @@ var (
 	hc_port    = flag.Uint("hc_port", 12345, "TCP port for health checking")
 )
 
-var (
-	ifacePrefixEnvVar string = os.Getenv("PCAP_IFACE")
-	sidecarEnvVar     string = os.Getenv("APP_SIDECAR")
-	moduleEnvVar      string = os.Getenv("PROC_NAME")
-	gaeEnvVar         string = os.Getenv("GCP_GAE")
-	hcPortEnvVar      string = os.Getenv("PCAP_HC_PORT")
-)
-
-var (
-	jobs            cmap.Map[uuid.UUID, *tcpdumpJob]
-	jid, xid        atomic.Value
-	emptyTcpdumpJob = tcpdumpJob{Jid: uuid.Nil.String()}
-
-	tcpdumpDisabledErr  = errors.New("GCS PCAP export disabled")
-	jsondumpDisabledErr = errors.New("GCS JSON export disabled")
-	jsonLogDisabledErr  = errors.New("STDOUT JSON log disabled")
-	gaeDisabledErr      = errors.New("GAE JSON log disabled")
-)
-
 type (
 	pcapTask struct {
 		engine  pcap.PcapEngine   `json:"-"`
 		writers []pcap.PcapWriter `json:"-"`
+		iface   string            `json:"-"`
 	}
 
 	tcpdumpJob struct {
@@ -106,6 +88,28 @@ type (
 		Job      tcpdumpJob `json:"job,omitempty"`
 		Tags     []string   `json:"tags,omitempty"`
 	}
+)
+
+var (
+	projectID         string = os.Getenv("PROJECT_ID")
+	ifacePrefixEnvVar string = os.Getenv("PCAP_IFACE")
+	sidecarEnvVar     string = os.Getenv("APP_SIDECAR")
+	moduleEnvVar      string = os.Getenv("PROC_NAME")
+	gaeEnvVar         string = os.Getenv("GCP_GAE")
+	hcPortEnvVar      string = os.Getenv("PCAP_HC_PORT")
+)
+
+var (
+	jid, xid        atomic.Value
+	jobs            *haxmap.Map[string, *tcpdumpJob]
+	emptyTcpdumpJob = tcpdumpJob{Jid: uuid.Nil.String()}
+
+	tcpdumpDisabledErr  = errors.New("GCS PCAP export disabled")
+	jsondumpDisabledErr = errors.New("GCS JSON export disabled")
+	jsonLogDisabledErr  = errors.New("STDOUT JSON log disabled")
+	gaeDisabledErr      = errors.New("GAE JSON log disabled")
+
+	wg sync.WaitGroup
 )
 
 const (
@@ -141,7 +145,7 @@ func jlog(severity jLogLevel, job *tcpdumpJob, message string) {
 }
 
 func afterTcpdump(id uuid.UUID, name string) {
-	if job, ok := jobs.Load(id); ok {
+	if job, jobFound := jobs.Get(id.String()); jobFound {
 		jlog(INFO, job, "execution complete")
 		j := *job.j
 		nextRun, _ := j.NextRun()
@@ -151,7 +155,7 @@ func afterTcpdump(id uuid.UUID, name string) {
 }
 
 func beforeTcpdump(id uuid.UUID, name string) {
-	if job, ok := jobs.Load(id); ok {
+	if job, jobFound := jobs.Get(id.String()); jobFound {
 		j := *job.j
 		lastRun, _ := j.LastRun()
 		jlog(INFO, job, fmt.Sprintf("execution started ( last execution: %v )", lastRun))
@@ -159,25 +163,25 @@ func beforeTcpdump(id uuid.UUID, name string) {
 	xid.Store(uuid.New())
 }
 
-func start(ctx context.Context, timeout time.Duration, job *tcpdumpJob) error {
-	// all PCAP engines are context aware
-	var wg sync.WaitGroup
-	wg.Add(len(job.tasks))
-
+func start(ctx context.Context, timeout *time.Duration, job *tcpdumpJob) error {
 	var cancel context.CancelFunc
-	if timeout > 0*time.Second {
-		ctx, cancel = context.WithTimeout(ctx, timeout)
+	if *timeout > 0*time.Second {
+		ctx, cancel = context.WithTimeout(ctx, *timeout)
 		defer cancel()
 	}
 
 	for _, task := range job.tasks {
-		go func(ctx context.Context, t *pcapTask) {
+		wg.Add(1)
+		go func(ctx context.Context, wg *sync.WaitGroup, j *tcpdumpJob, t *pcapTask) {
 			defer wg.Done()
+			// all PCAP engines are context aware
 			err := t.engine.Start(ctx, t.writers)
 			if err != nil {
-				jlog(INFO, job, fmt.Sprintf("pcap execution stopped: %s", err))
+				jlog(INFO, j, fmt.Sprintf("pcap task execution stopped: %s | %s", t.iface, err.Error()))
+			} else {
+				jlog(INFO, j, fmt.Sprintf("pcap task execution stopped: %s", t.iface))
 			}
-		}(ctx, task)
+		}(ctx, &wg, job, task)
 	}
 
 	// wait for context cancel/timeout
@@ -186,28 +190,35 @@ func start(ctx context.Context, timeout time.Duration, job *tcpdumpJob) error {
 	// wait for tasks to gracefully stop
 	wg.Wait()
 
-	return nil
+	jlog(INFO, job, "pcap job execution stopped")
+
+	return ctx.Err()
 }
 
 func tcpdump(timeout time.Duration) error {
 	jobID := jid.Load().(uuid.UUID)
-	exeID := xid.Load().(uuid.UUID).String()
+	exeID := xid.Load().(uuid.UUID)
 
 	var job *tcpdumpJob
-	var ok bool
-	if job, ok = jobs.Load(jobID); !ok {
+	var jobFound bool
+	if job, jobFound = jobs.Get(jobID.String()); !jobFound {
 		message := fmt.Sprintf("job[id:%s] not found", jobID)
 		jlog(ERROR, &emptyTcpdumpJob, message)
 		return fmt.Errorf(message)
 	}
 
 	// enable PCAP tasks with context awareness
-	id := fmt.Sprintf("job/%s/exe/%s", jobID.String(), exeID)
+	id := fmt.Sprintf("job/%s/exe/%s", jobID.String(), exeID.String())
 	ctx := context.WithValue(job.ctx, pcap.PcapContextID, id)
 	ctx = context.WithValue(ctx, pcap.PcapContextLogName,
-		fmt.Sprintf("projects/%s/pcap/%s", os.Getenv("PROJECT_ID"), id))
+		fmt.Sprintf("projects/%s/pcap/%s", projectID, id))
 
-	return start(ctx, timeout, job)
+	err := start(ctx, &timeout, job)
+	if err == context.DeadlineExceeded {
+		// if context times out, it is a clean termination
+		return nil
+	}
+	return err
 }
 
 func newPcapConfig(
@@ -272,7 +283,7 @@ func createTasks(
 			engineErr = tcpdumpDisabledErr
 		}
 		if engineErr == nil {
-			tasks = append(tasks, &pcapTask{engine: tcpdumpEngine, writers: nil})
+			tasks = append(tasks, &pcapTask{engine: tcpdumpEngine, writers: nil, iface: iface})
 			jlog(INFO, &emptyTcpdumpJob, fmt.Sprintf("configured 'tcpdump' for iface: %s", ifaceAndIndex))
 		} else if *tcpdump {
 			jlog(ERROR, &emptyTcpdumpJob, fmt.Sprintf("tcpdump GCS writer creation failed: %s (%s)", ifaceAndIndex, engineErr))
@@ -337,13 +348,13 @@ func createTasks(
 		}
 
 		jlog(INFO, &emptyTcpdumpJob, fmt.Sprintf("configured 'jsondump' for iface: %s", ifaceAndIndex))
-		tasks = append(tasks, &pcapTask{jsondumpEngine, pcapWriters})
+		tasks = append(tasks, &pcapTask{engine: jsondumpEngine, writers: pcapWriters, iface: iface})
 	}
 
 	return tasks
 }
 
-func startTCPListener(ctx context.Context, port *uint, stopChannel chan<- bool) {
+func startTCPListener(ctx context.Context, port *uint, job *tcpdumpJob, stopChannel chan<- bool) {
 	tcpListener, tcpListenerErr := net.Listen("tcp", fmt.Sprintf(":%d", *port))
 
 	if tcpListenerErr != nil {
@@ -356,7 +367,9 @@ func startTCPListener(ctx context.Context, port *uint, stopChannel chan<- bool) 
 		case <-ctx.Done():
 			var err error
 			if err = tcpListener.Close(); err != nil {
-				jlog(ERROR, &emptyTcpdumpJob, fmt.Sprintf("failed to stop the TCP listener: %v", err))
+				jlog(ERROR, job, fmt.Sprintf("failed to stop TCP listener: %d | %v", *port, err))
+			} else {
+				jlog(INFO, job, fmt.Sprintf("stopped TCP listener: %d", *port))
 			}
 			stopChannel <- (err == nil)
 			return
@@ -364,10 +377,26 @@ func startTCPListener(ctx context.Context, port *uint, stopChannel chan<- bool) 
 		// accept connections until context is done
 		default:
 			conn, err := tcpListener.Accept()
-			if err != nil {
+			if err == nil {
 				conn.Close()
 			}
 		}
+	}
+}
+
+func waitDone(job *tcpdumpJob, exitSignal *string) {
+	// wait for all PCAP tasks to be gracefully stopped
+	jlog(INFO, job, "waiting for PCAP tasks to gracefully terminate")
+	wg.Wait()
+
+	// `TCPDUMPW_EXITED` file creation signals `pcap_fsn` to start its own termination process
+	terminationSignal, err := os.OpenFile(*exitSignal, os.O_RDWR|os.O_CREATE|os.O_EXCL, 0o666)
+
+	if err == nil {
+		jlog(INFO, job, fmt.Sprintf("'tcpdumpw' termination signal created: %s", terminationSignal.Name()))
+		terminationSignal.Close()
+	} else {
+		jlog(ERROR, job, fmt.Sprintf("'tcpdumpw' termination signal creation failed: %s | %s", terminationSignal.Name(), err.Error()))
 	}
 }
 
@@ -388,11 +417,19 @@ func main() {
 		os.Exit(1)
 	}
 
+	jobs = haxmap.New[string, *tcpdumpJob]()
+
 	timeout := time.Duration(*duration) * time.Second
 	jlog(INFO, &emptyTcpdumpJob, fmt.Sprintf("parsed timeout: %v", timeout))
 
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
+
+	// the file to be created when `tcpdumpw` exists
+	exitSignal := fmt.Sprintf("%s/TCPDUMPW_EXITED", *directory)
+
+	// receives status of TCP listener termination: `true` means successful
+	tcpStopChannel := make(chan bool, 1)
 
 	// create empty job: used if CRON is not enabled
 	job := &tcpdumpJob{Jid: uuid.Nil.String(), tasks: tasks}
@@ -403,10 +440,12 @@ func main() {
 		signal := <-signals
 		jlog(INFO, job, fmt.Sprintf("signaled: %v", signal))
 		cancel()
+		// unblock TCP listener; next iteration will find `ctx` done
+		conn, err := net.Dial("tcp", fmt.Sprintf("127.0.0.1:%d", *hc_port))
+		if err == nil {
+			conn.Close()
+		}
 	}()
-
-	// receives status of TCP listener termination: `true` means successful
-	tcpStopChannel := make(chan bool, 1)
 
 	// Skip scheduling, execute `tcpdump` immediately
 	if !*use_cron {
@@ -415,8 +454,11 @@ func main() {
 		logName := fmt.Sprintf("projects/%s/pcaps/%s", os.Getenv("PROJECT_ID"), id)
 		ctx = context.WithValue(ctx, pcap.PcapContextLogName, logName)
 		// start the TCP listener for health checks
-		go startTCPListener(ctx, hc_port, tcpStopChannel)
-		start(ctx, timeout, job)
+		go startTCPListener(ctx, hc_port, job, tcpStopChannel)
+		start(ctx, &timeout, job)
+		waitDone(job, &exitSignal)
+		<-tcpStopChannel
+		close(tcpStopChannel)
 		return
 	}
 
@@ -430,7 +472,7 @@ func main() {
 	jlog(INFO, &emptyTcpdumpJob, fmt.Sprintf("parsed timezone: %v", location))
 
 	// Create a scheduler using the requested timezone.
-	// no more than 1 packet capturing job should ever be executed.
+	// no more than 1 packet capturing job (all its tasks) should ever be executed.
 	s, err := gocron.NewScheduler(
 		gocron.WithLimitConcurrentJobs(1, gocron.LimitModeReschedule),
 		gocron.WithLocation(location),
@@ -477,7 +519,7 @@ func main() {
 		Tags:  j.Tags(),
 		j:     &j,
 	}
-	jobs.Store(j.ID(), job)
+	jobs.Set(job.Jid, job)
 	jlog(INFO, job, "scheduled job")
 
 	// Start the packet capturing scheduler
@@ -487,7 +529,7 @@ func main() {
 	jlog(INFO, job, fmt.Sprintf("next execution: %v", nextRun))
 
 	// start the TCP listener for health checks
-	go startTCPListener(ctx, hc_port, tcpStopChannel)
+	go startTCPListener(ctx, hc_port, job, tcpStopChannel)
 
 	// Block main goroutine until a signal is received
 	<-ctx.Done()
@@ -495,11 +537,9 @@ func main() {
 	s.StopJobs()
 	s.RemoveJob(j.ID())
 	s.Shutdown()
+	jlog(INFO, job, "scheduler terminated")
 
-	// wait for TCP listener to be terminated
-	isTCPstopOK := <-tcpStopChannel
-	if !isTCPstopOK {
-		// signal unclean termination
-		os.Exit(5)
-	}
+	waitDone(job, &exitSignal)
+	<-tcpStopChannel
+	close(tcpStopChannel)
 }

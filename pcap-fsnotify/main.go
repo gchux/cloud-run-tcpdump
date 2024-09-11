@@ -166,10 +166,11 @@ func movePcapToGcs(srcPcap *string, dstDir *string, compress, delete bool) (*str
 		// remove the source PCAP file if copying is sucessful
 		err = os.Remove(*srcPcap)
 		if err != nil {
-			logFsEvent(zapcore.ErrorLevel, fmt.Sprintf("DELETE[%s]: %s", *srcPcap, err), PCAP_EXPORT, *srcPcap, tgtPcap, 0)
+			logFsEvent(zapcore.ErrorLevel, fmt.Sprintf("DELETE[%s]: %s", *srcPcap, err), PCAP_EXPORT, *srcPcap, tgtPcap, pcapBytes)
+		} else {
+			logFsEvent(zapcore.InfoLevel, fmt.Sprintf("DELETED: %s", *srcPcap), PCAP_EXPORT, *srcPcap, tgtPcap, pcapBytes)
 		}
 	}
-	logFsEvent(zapcore.InfoLevel, fmt.Sprintf("DELETED: %s", *srcPcap), PCAP_EXPORT, *srcPcap, tgtPcap, pcapBytes)
 
 	return &tgtPcap, &pcapBytes, nil
 }
@@ -324,6 +325,7 @@ func main() {
 
 	ext := strings.Join(strings.Split(*pcap_ext, ","), "|")
 	pcapDotExt := regexp.MustCompile(`^` + *src_dir + `/part__(\d+?)_(.+?)__\d{8}T\d{6}\.(` + ext + `)$`)
+	tcpdumpwExitSignal := regexp.MustCompile(`^` + *src_dir + `/TCPDUMPW_EXITED$`)
 
 	// must match the value of `PCAP_ROTATE_SECS`
 	watchdogInterval := time.Duration(*interval) * time.Second
@@ -388,11 +390,26 @@ func main() {
 					return
 				}
 				// Skip events which are not CREATE, and all which are not related to PCAP files
-				if !event.Has(fsnotify.Create) || !pcapDotExt.MatchString(event.Name) {
-					continue
+				if event.Has(fsnotify.Create) && pcapDotExt.MatchString(event.Name) {
+					wg.Add(1)
+					exportPcapFile(wg, pcapDotExt, &event.Name, *gzip_pcaps /* compress */, true /* delete */, false /* flush */)
+				} else if event.Has(fsnotify.Create) && tcpdumpwExitSignal.MatchString(event.Name) {
+					// `tcpdumpw` wignals its termination by creating the file `TCPDUMPW_EXITED` is the source directory
+					tcpdumpwExitTS := time.Now()
+					sugar.Infow("detected 'tcpdumpw' termination signal",
+						"sidecar", sidecar, "module", module, "tags", tags, "data",
+						map[string]interface{}{
+							"event":     PCAP_SIGNAL,
+							"signal":    event.Name,
+							"timestamp": tcpdumpwExitTS.Format(time.RFC3339Nano),
+						})
+					// delete `tcpdumpw` termination signal
+					os.Remove(event.Name)
+					// when `tcpdumpw` signal is detected:
+					//   - cancel the context which triggers final PCAP files flushing
+					cancel()
+					return
 				}
-				wg.Add(1)
-				exportPcapFile(wg, pcapDotExt, &event.Name, *gzip_pcaps /* compress */, true /* delete */, false /* flush */)
 
 			case fsnErr, ok := <-watcher.Errors:
 				if !ok { // Channel was closed (i.e. Watcher.Close() was called).
@@ -414,6 +431,9 @@ func main() {
 	go func(watcher *fsnotify.Watcher, ticker *time.Ticker) {
 		for isActive.Load() {
 			select {
+
+			case <-ctx.Done():
+				return
 
 			case <-ticker.C:
 				// packet capturing is write intensive
@@ -442,9 +462,6 @@ func main() {
 						"released": releasedMemory,
 					})
 
-			case <-ctx.Done():
-				return
-
 			}
 		}
 	}(watcher, ticker)
@@ -466,12 +483,14 @@ func main() {
 			})
 
 		if isActive.CompareAndSwap(true, false) {
-			watcher.Remove(*src_dir)
-			watcher.Close()
 			ticker.Stop()
 		}
 
-		cancel()
+		time.AfterFunc(3*time.Second, func() {
+			// cancel then context after 3s regardless of `tcpdumpw` termination signal:
+			//   - this is effectively the `max_wait_time` for `tcpdumpw` termination signal.
+			cancel()
+		})
 	}(watcher, ticker)
 
 	if err == nil {
@@ -490,6 +509,9 @@ func main() {
 	}
 
 	<-ctx.Done() // wait for context to be cancelled
+
+	watcher.Remove(*src_dir)
+	watcher.Close()
 
 	flushStart := time.Now()
 	// flush remaining PCAP files after context is done
