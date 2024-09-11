@@ -482,10 +482,6 @@ func main() {
 				"signal": signal,
 			})
 
-		if isActive.CompareAndSwap(true, false) {
-			ticker.Stop()
-		}
-
 		time.AfterFunc(3*time.Second, func() {
 			// cancel then context after 3s regardless of `tcpdumpw` termination signal:
 			//   - this is effectively the `max_wait_time` for `tcpdumpw` termination signal.
@@ -510,6 +506,7 @@ func main() {
 
 	<-ctx.Done() // wait for context to be cancelled
 
+	ticker.Stop()
 	watcher.Remove(*src_dir)
 	watcher.Close()
 
