@@ -214,7 +214,7 @@ func tcpdump(timeout time.Duration) error {
 		fmt.Sprintf("projects/%s/pcap/%s", projectID, id))
 
 	err := start(ctx, &timeout, job)
-	if err == context.DeadlineExceeded {
+	if err == context.DeadlineExceeded || err == context.Canceled {
 		// if context times out, it is a clean termination
 		return nil
 	}
