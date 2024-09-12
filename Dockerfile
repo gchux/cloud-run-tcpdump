@@ -15,7 +15,7 @@
 FROM --platform=linux/amd64 ubuntu:22.04
 ARG DEBIAN_FRONTEND=noninteractive
 ARG GCSFUSE_VERSION='2.1.0'
-LABEL org.opencontainers.image.description "Cloud Run PCAP sidecar"
+LABEL org.opencontainers.image.description="Cloud Run PCAP sidecar"
 USER 0:0
 RUN apt-get -qq update > /dev/null && apt-get install -qq -y tzdata curl jq fuse libpcap-dev tcpdump && apt-get -qq clean > /dev/null
 RUN curl -o /gcsfuse.deb -L \

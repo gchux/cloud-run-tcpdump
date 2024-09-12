@@ -512,6 +512,9 @@ func main() {
 	watcher.Remove(*src_dir)
 	watcher.Close()
 
+	// wait for all regular export operations to terminate
+	wg.Wait()
+
 	flushStart := time.Now()
 	// flush remaining PCAP files after context is done
 	// compression & deletion are disabled when exiting in order to speed up the process
