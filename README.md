@@ -274,7 +274,7 @@ More advanced use cases may benefit from scheduling `tcpdump` executions. Use th
 
 -    While it is true that [Cloud Storage volume mounts](https://cloud.google.com/run/docs/configuring/services/cloud-storage-volume-mounts) is available in prevew, GCSFuse is used instead to minimize the required configuration to deploy a Revision instrumented with the `tcpdump` sidecar.
 
-     >    **NOTE***: this is also the reason why the base image for the `tcpdump` sidecar is `ubuntu:22.04` and not something lighter like `alpine`. GCSFuse pre-built packages are only available for Debian and RPM based distributions.
+     >    **NOTE**: this is also the reason why the base image for the `tcpdump` sidecar is `ubuntu:22.04` and not something lighter like `alpine`. GCSFuse pre-built packages are only available for Debian and RPM based distributions.
 
 -    While setting `PCAP_ORDER` to `true` is a good alternative for low traffic scenarios, it is recommended setting it to `false` for most other cases since the level of concurrency is reduced (only for translations) in order to guarantee packet order.
 
