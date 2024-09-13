@@ -99,29 +99,34 @@ var (
 	hcPortEnvVar      string = os.Getenv("PCAP_HC_PORT")
 )
 
+var wg sync.WaitGroup
+
+var jid, xid atomic.Value
+
+var jobs *haxmap.Map[string, *tcpdumpJob]
+
+var emptyTcpdumpJob = tcpdumpJob{Jid: uuid.Nil.String()}
+
 var (
-	jid, xid        atomic.Value
-	jobs            *haxmap.Map[string, *tcpdumpJob]
-	emptyTcpdumpJob = tcpdumpJob{Jid: uuid.Nil.String()}
-
-	tcpdumpDisabledErr  = errors.New("GCS PCAP export disabled")
-	jsondumpDisabledErr = errors.New("GCS JSON export disabled")
-	jsonLogDisabledErr  = errors.New("STDOUT JSON log disabled")
-	gaeDisabledErr      = errors.New("GAE JSON log disabled")
-
-	wg sync.WaitGroup
+	errTcpdumpDisabled  = errors.New("GCS PCAP export disabled")
+	errJsondumpDisabled = errors.New("GCS JSON export disabled")
+	errJsonLogDisabled  = errors.New("STDOUT JSON log disabled")
+	errGaeDisabled      = errors.New("GAE JSON log disabled")
 )
 
 const (
 	INFO  jLogLevel = "INFO"
 	ERROR jLogLevel = "ERROR"
 	FATAL jLogLevel = "FATAL"
+)
 
+const (
 	fileNamePattern = "%d_%s__%%Y%%m%%dT%%H%%M%%S"
 	runFileOutput   = `%s/part__` + fileNamePattern
 	gaeFileOutput   = `/var/log/app_engine/app/app_pcap__` + fileNamePattern
-	gaeJSONInterval = 0 // disable time based file rotation
 )
+
+var gaeJSONInterval = 0 // disable time based file rotation
 
 func jlog(severity jLogLevel, job *tcpdumpJob, message string) {
 	j := *job
@@ -280,7 +285,7 @@ func createTasks(
 		if *tcpdump {
 			tcpdumpEngine, engineErr = pcap.NewTcpdump(tcpdumpCfg)
 		} else {
-			engineErr = tcpdumpDisabledErr
+			engineErr = errTcpdumpDisabled
 		}
 		if engineErr == nil {
 			tasks = append(tasks, &pcapTask{engine: tcpdumpEngine, writers: nil, iface: iface})
@@ -310,7 +315,7 @@ func createTasks(
 			// writing JSON PCAP file is only enabled if `jsondump` is enabled
 			jsondumpWriter, writerErr = pcap.NewPcapWriter(&output, &jsondumpCfg.Extension, timezone, *interval)
 		} else {
-			jsondumpWriter, writerErr = nil, jsondumpDisabledErr
+			jsondumpWriter, writerErr = nil, errJsonLogDisabled
 		}
 		if writerErr == nil {
 			pcapWriters = append(pcapWriters, jsondumpWriter)
@@ -323,7 +328,7 @@ func createTasks(
 		if *jsonlog {
 			jsonlogWriter, writerErr = pcap.NewStdoutPcapWriter()
 		} else {
-			jsonlogWriter, writerErr = nil, jsonLogDisabledErr
+			jsonlogWriter, writerErr = nil, errJsonLogDisabled
 		}
 		if writerErr == nil {
 			pcapWriters = append(pcapWriters, jsonlogWriter)
@@ -338,13 +343,13 @@ func createTasks(
 			gaeOutput = fmt.Sprintf(gaeFileOutput, netIface.Index, netIface.Name)
 			gaejsonWriter, writerErr = pcap.NewPcapWriter(&gaeOutput, &jsondumpCfg.Extension, timezone, *interval)
 		} else {
-			gaejsonWriter, writerErr = nil, gaeDisabledErr
+			gaejsonWriter, writerErr = nil, errGaeDisabled
 		}
 		if writerErr == nil {
 			pcapWriters = append(pcapWriters, gaejsonWriter)
 			jlog(INFO, &emptyTcpdumpJob, fmt.Sprintf("configured GAE JSON '%s' writer for iface: %s", gaeOutput, ifaceAndIndex))
 		} else if isGAE {
-			jlog(ERROR, &emptyTcpdumpJob, fmt.Sprintf("jsondump GAE json writer creation failed: %s (%s)", ifaceAndIndex, gaeDisabledErr))
+			jlog(ERROR, &emptyTcpdumpJob, fmt.Sprintf("jsondump GAE json writer creation failed: %s (%s)", ifaceAndIndex, errGaeDisabled))
 		}
 
 		jlog(INFO, &emptyTcpdumpJob, fmt.Sprintf("configured 'jsondump' for iface: %s", ifaceAndIndex))

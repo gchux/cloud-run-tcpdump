@@ -77,16 +77,17 @@ var (
 )
 
 var (
-	projectID  string   = os.Getenv("PROJECT_ID")
-	gcpRegion  string   = os.Getenv("GCP_REGION")
-	service    string   = os.Getenv("APP_SERVICE")
-	version    string   = os.Getenv("APP_VERSION")
-	sidecar    string   = os.Getenv("APP_SIDECAR")
-	instanceID string   = os.Getenv("INSTANCE_ID")
-	module     string   = os.Getenv("PROC_NAME")
-	gcpGAE     string   = os.Getenv("PCAP_GAE")
-	tags       []string = []string{projectID, service, gcpRegion, version, instanceID}
+	projectID  string = os.Getenv("PROJECT_ID")
+	gcpRegion  string = os.Getenv("GCP_REGION")
+	service    string = os.Getenv("APP_SERVICE")
+	version    string = os.Getenv("APP_VERSION")
+	sidecar    string = os.Getenv("APP_SIDECAR")
+	instanceID string = os.Getenv("INSTANCE_ID")
+	module     string = os.Getenv("PROC_NAME")
+	gcpGAE     string = os.Getenv("PCAP_GAE")
 )
+
+var tags []string = []string{projectID, service, gcpRegion, version, instanceID}
 
 var logger, _ = zap.Config{
 	Encoding:    "json",
@@ -105,8 +106,9 @@ var sugar = logger.Sugar()
 var (
 	counters *haxmap.Map[string, *atomic.Uint64]
 	lastPcap *haxmap.Map[string, string]
-	isActive atomic.Bool
 )
+
+var isActive atomic.Bool
 
 func logFsEvent(level zapcore.Level, message string, event pcapEvent, src, tgt string, by int64) {
 	now := time.Now()
@@ -136,7 +138,7 @@ func movePcapToGcs(srcPcap *string, dstDir *string, compress, delete bool) (*str
 		logFsEvent(zapcore.ErrorLevel, fmt.Sprintf("OPEN[%s]: %s", *srcPcap, err), PCAP_EXPORT, *srcPcap, tgtPcap, 0)
 		return &tgtPcap, &pcapBytes, fmt.Errorf("failed to open source pcap: %s", *srcPcap)
 	}
-	logFsEvent(zapcore.InfoLevel, fmt.Sprintf("OPENED: %s", *srcPcap), PCAP_EXPORT, *srcPcap, tgtPcap, 0)
+	// logFsEvent(zapcore.InfoLevel, fmt.Sprintf("OPENED: %s", *srcPcap), PCAP_EXPORT, *srcPcap, tgtPcap, 0)
 
 	// Create destination PCAP file ( export to the GCS Bucket )
 	outputPcap, err = os.OpenFile(tgtPcap, os.O_RDWR|os.O_CREATE|os.O_EXCL, 0666)
@@ -144,7 +146,7 @@ func movePcapToGcs(srcPcap *string, dstDir *string, compress, delete bool) (*str
 		logFsEvent(zapcore.ErrorLevel, fmt.Sprintf("CREATE[%s]: %s", tgtPcap, err), PCAP_EXPORT, *srcPcap, tgtPcap, 0)
 		return &tgtPcap, &pcapBytes, fmt.Errorf("failed to create destination pcap: %s", tgtPcap)
 	}
-	logFsEvent(zapcore.InfoLevel, fmt.Sprintf("CREATED: %s", tgtPcap), PCAP_EXPORT, *srcPcap, tgtPcap, 0)
+	// logFsEvent(zapcore.InfoLevel, fmt.Sprintf("CREATED: %s", tgtPcap), PCAP_EXPORT, *srcPcap, tgtPcap, 0)
 
 	// Copy source PCAP into destination PCAP, compressing destination PCAP is optional
 	if compress {
