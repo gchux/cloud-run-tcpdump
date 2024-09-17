@@ -153,11 +153,14 @@ func movePcapToGcs(srcPcap *string, dstDir *string, compress, delete bool) (*str
 		gzipPcap := gzip.NewWriter(outputPcap)
 		pcapBytes, err = io.Copy(gzipPcap, inputPcap)
 		gzipPcap.Flush()
+		gzipPcap.Close() // this is stil required; `Close()` on parent `Writer` does not trigger `Close()` at `gzip`
 	} else {
 		pcapBytes, err = io.Copy(outputPcap, inputPcap)
 	}
+
 	inputPcap.Close()
 	outputPcap.Close()
+
 	if err != nil {
 		logFsEvent(zapcore.ErrorLevel, fmt.Sprintf("COPY[%s]: %s", *srcPcap, err), PCAP_EXPORT, *srcPcap, tgtPcap, 0)
 		return &tgtPcap, &pcapBytes, fmt.Errorf("failed to copy '%s' into '%s'", *srcPcap, tgtPcap)
