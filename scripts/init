@@ -3,6 +3,7 @@
 set -xm
 
 printenv
+tcpdump --version
 
 export ENV_FILE='/tcpdump.env'
 

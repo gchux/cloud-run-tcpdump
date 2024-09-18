@@ -12,17 +12,26 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-FROM --platform=linux/amd64 ubuntu:22.04
+FROM --platform=linux/amd64 pcap-sidecar:v1.0.0
+
 ARG DEBIAN_FRONTEND=noninteractive
 ARG GCSFUSE_VERSION='2.1.0'
+
 LABEL org.opencontainers.image.description="Cloud Run PCAP sidecar"
+
 USER 0:0
-RUN apt-get -qq update > /dev/null && apt-get install -qq -y tzdata curl jq fuse libpcap-dev tcpdump && apt-get -qq clean > /dev/null
+
+RUN apt-get -qq update > /dev/null \
+    && apt-get install -qq -y tzdata curl jq fuse \
+    && apt-get -qq clean > /dev/null
+
 RUN curl -o /gcsfuse.deb -L \
     https://github.com/GoogleCloudPlatform/gcsfuse/releases/download/v${GCSFUSE_VERSION}/gcsfuse_${GCSFUSE_VERSION}_amd64.deb \
     && dpkg -i --force-all /gcsfuse.deb && rm -vf /gcsfuse.deb
+
 COPY ./bin /bin
 COPY ./scripts /scripts
 COPY ./tcpdump.conf /tcpdump.conf
 COPY ./scripts/init /init
+
 ENTRYPOINT ["/init"]

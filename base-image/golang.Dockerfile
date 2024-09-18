@@ -1,6 +1,6 @@
 # syntax=docker/dockerfile:1.4
 
-FROM --platform=linux/amd64 ubuntu:22.04 AS libpcap
+FROM --platform=linux/amd64 golang:1.22.4-bookworm AS libpcap
 
 ARG DEBIAN_FRONTEND=noninteractive
 ARG LIBPCAP_VERSION=1.9.1
@@ -22,7 +22,7 @@ RUN cd libpcap-${LIBPCAP_VERSION} \
     && make && make install \
     && ls -lR /app/libpcap-${LIBPCAP_VERSION}/dist/
 
-FROM --platform=linux/amd64 ubuntu:22.04 AS tcpdump
+FROM --platform=linux/amd64 golang:1.22.4-bookworm AS tcpdump
 
 ARG DEBIAN_FRONTEND=noninteractive
 ARG LIBPCAP_VERSION=1.9.1
@@ -32,7 +32,7 @@ WORKDIR /app
 
 USER 0:0
 
-COPY --from=libpcap /app/libpcap-${LIBPCAP_VERSION}/dist/bin/ /usr/bin/
+COPY --from=libpcap /app/libpcap-${LIBPCAP_VERSION}/dist/bin/ /bin/
 COPY --from=libpcap /app/libpcap-${LIBPCAP_VERSION}/dist/lib/ /lib/x86_64-linux-gnu/
 COPY --from=libpcap /app/libpcap-${LIBPCAP_VERSION}/dist/include/ /usr/include/
 
@@ -51,7 +51,7 @@ RUN cd tcpdump-${TCPDUMP_VERSION} \
     && make && make install \
     && ls -lR /app/tcpdump-${TCPDUMP_VERSION}/dist/
 
-FROM --platform=linux/amd64 ubuntu:22.04
+FROM --platform=linux/amd64 golang:1.22.4-bookworm
 
 ARG DEBIAN_FRONTEND=noninteractive
 ARG LIBPCAP_VERSION=1.9.1
@@ -59,8 +59,8 @@ ARG TCPDUMP_VERSION=4.99.5
 
 USER 0:0
 
-COPY --from=libpcap /app/libpcap-${LIBPCAP_VERSION}/dist/bin/ /usr/bin/
-COPY --from=tcpdump /app/tcpdump-${TCPDUMP_VERSION}/dist/bin/ /usr/bin/
+COPY --from=libpcap /app/libpcap-${LIBPCAP_VERSION}/dist/bin/ /bin/
+COPY --from=tcpdump /app/tcpdump-${TCPDUMP_VERSION}/dist/bin/ /bin/
 COPY --from=libpcap /app/libpcap-${LIBPCAP_VERSION}/dist/lib/ /lib/x86_64-linux-gnu/
 COPY --from=libpcap /app/libpcap-${LIBPCAP_VERSION}/dist/include/ /usr/include/
 

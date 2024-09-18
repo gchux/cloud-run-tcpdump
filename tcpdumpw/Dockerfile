@@ -14,14 +14,13 @@
 # limitations under the License.
 
 
-FROM --platform=linux/amd64 golang:1.22.4-bookworm AS builder
+FROM --platform=linux/amd64 pcap-sidecar:v1.0.0-golang1.22.4 AS builder
 
 ARG DEBIAN_FRONTEND=noninteractive
 ARG BIN_NAME=tcpdumpw
 
 WORKDIR /app
 
-RUN apt-get -qq update > /dev/null && apt-get install -qq -y libpcap-dev && apt-get -qq clean > /dev/null
 RUN go install mvdan.cc/gofumpt@latest
 
 COPY ./go.mod go.mod
