@@ -20,6 +20,7 @@ import (
 	"errors"
 	"flag"
 	"fmt"
+	"io"
 	"net"
 	"os"
 	"os/signal"
@@ -146,7 +147,7 @@ func jlog(severity jLogLevel, job *tcpdumpJob, message string) {
 		fmt.Fprintf(os.Stderr, "[ERROR] - %s\n", err)
 		return
 	}
-	fmt.Println(string(jEntry))
+	io.WriteString(os.Stdout, string(jEntry)+"\n")
 }
 
 func afterTcpdump(id uuid.UUID, name string) {
@@ -394,6 +395,7 @@ func waitDone(job *tcpdumpJob, exitSignal *string) {
 	jlog(INFO, job, "waiting for PCAP tasks to gracefully terminate")
 	wg.Wait()
 
+	// ToDo: use https://github.com/gofrs/flock
 	// `TCPDUMPW_EXITED` file creation signals `pcap_fsn` to start its own termination process
 	terminationSignal, err := os.OpenFile(*exitSignal, os.O_RDWR|os.O_CREATE|os.O_EXCL, 0o666)
 

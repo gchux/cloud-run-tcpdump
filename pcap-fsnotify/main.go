@@ -153,7 +153,7 @@ func movePcapToGcs(srcPcap *string, dstDir *string, compress, delete bool) (*str
 		gzipPcap := gzip.NewWriter(outputPcap)
 		pcapBytes, err = io.Copy(gzipPcap, inputPcap)
 		gzipPcap.Flush()
-		gzipPcap.Close() // this is stil required; `Close()` on parent `Writer` does not trigger `Close()` at `gzip`
+		gzipPcap.Close() // this is still required; `Close()` on parent `Writer` does not trigger `Close()` at `gzip`
 	} else {
 		pcapBytes, err = io.Copy(outputPcap, inputPcap)
 	}

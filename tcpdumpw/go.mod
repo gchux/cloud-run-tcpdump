@@ -2,11 +2,11 @@ module github.com/gchux/cloud-run-tcpdump/tcpdumpw
 
 go 1.22.4
 
-// replace github.com/gchux/pcap-cli v1.0.0-rc104 => ../pcap-cli
+// replace github.com/gchux/pcap-cli v1.0.0-rc106 => ../pcap-cli
 
 require (
 	github.com/alphadose/haxmap v1.4.0
-	github.com/gchux/pcap-cli v1.0.0-rc104
+	github.com/gchux/pcap-cli v1.0.0-rc106
 	github.com/go-co-op/gocron/v2 v2.5.0
 	github.com/google/uuid v1.6.0
 )
