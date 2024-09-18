@@ -16,6 +16,21 @@ The sidecar approach enables decoupling from the main –*ingress*– container 
 
 > **NOTE**: the main –*ingress*– container is the one to which all ingress traffic ( HTTP Requests ) is delivered to; for Cloud Run services, this is typically your APP container.
 
+## Features
+
+* Structured Cloud Logging entries that provide easily digestible pcap info
+     * HTTP/1.1 or HTTP/2 analysis
+          * Semented by networking layer and HTTP/1.1 with raw message
+          * Report errors at HTTP/1.1 message and HTTP/2 frames analysis
+     * Packet linking query analysis via flow id ( 5-tuple ) and Cloud Trace ID
+* Exports pcap files to Google Cloud Storage (GCS)
+     * Support `.json` and `.pcap` file formats with optional gzip compression
+     * Graceful handling of `SIGTERM` to ensure all completed pcap files are flushed to GCS before container exits
+* Packet capture configurability
+     * tcpdump filter, interface, snapshot length, pcap file rotation duration
+* Control for scheduling `tcpdump` executions via CRON
+ 
+
 ## Building blocks
 
 - [Ubuntu 22.04 official docker image](https://hub.docker.com/_/ubuntu)
@@ -200,7 +215,7 @@ The `tcpdump` sidecar accespts the following environment variables:
 
 -    `PCAP_COMPRESS`: (BOOLEAN, *optional*) whether to compress **PCAP files** or not; default value is `true`.
 
--    `PCAP_TCPDUMP`: (BOOLEAN, *required*) whether to use `tcpdump` or not ( `tcpdump` will generate pcap files, if not `PCAP_JSON` must be enabled ) and push thos `.pcap` files to GCS; default valie is `true`.
+-    `PCAP_TCPDUMP`: (BOOLEAN, *required*) whether to use `tcpdump` or not ( `tcpdump` will generate pcap files, if not `PCAP_JSON` must be enabled ) and push those `.pcap` files to GCS; default valie is `true`.
 
 -    `PCAP_JSON`: (BOOLEAN, *optional*) whether to use `JSON` to dump packets or not into GCS ; default value is `false`.
 
@@ -272,7 +287,7 @@ More advanced use cases may benefit from scheduling `tcpdump` executions. Use th
 
      -    When troubleshooting is complete, deploy a new Revision without the `tcpdump` sidecar to completely disable it.
 
--    While it is true that [Cloud Storage volume mounts](https://cloud.google.com/run/docs/configuring/services/cloud-storage-volume-mounts) is available in prevew, GCSFuse is used instead to minimize the required configuration to deploy a Revision instrumented with the `tcpdump` sidecar.
+-    While it is true that [Cloud Storage volume mounts](https://cloud.google.com/run/docs/configuring/services/cloud-storage-volume-mounts) is an available built in feature of Cloud Run, GCSFuse is used instead to minimize the required configuration to deploy a Revision instrumented with the `tcpdump` sidecar.
 
      >    **NOTE**: this is also the reason why the base image for the `tcpdump` sidecar is `ubuntu:22.04` and not something lighter like `alpine`. GCSFuse pre-built packages are only available for Debian and RPM based distributions.
 
