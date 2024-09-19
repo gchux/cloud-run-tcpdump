@@ -12,7 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-FROM --platform=linux/amd64 pcap-sidecar:v1.0.0
+FROM --platform=linux/amd64 pcap-sidecar:latest
 
 ARG DEBIAN_FRONTEND=noninteractive
 ARG GCSFUSE_VERSION='2.1.0'

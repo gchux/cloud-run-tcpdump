@@ -11,6 +11,7 @@ fi
 
 export MAIN_PID=$$
 export BIN_DIR="$(pwd)/bin"
+export BASE_IMAGE_DIR="$(pwd)/base-image"
 
 if [ -d ${BIN_DIR} ]; then
   echo "cleaning release directory: ${BIN_DIR}"
@@ -33,9 +34,22 @@ function docker_build {
   fi
 }
 
-docker_build $(pwd)/tcpdumpw
+# build base image for go builders and sidecar
+docker buildx build --no-cache \
+  --file=${BASE_IMAGE_DIR}/Dockerfile \
+  -t pcap-base:latest $(pwd)
+
+docker buildx build --no-cache \
+  --file=${BASE_IMAGE_DIR}/sidecar.Dockerfile \
+  -t pcap-sidecar:latest $(pwd)
+
+docker buildx build --no-cache \
+  --file=${BASE_IMAGE_DIR}/golang.Dockerfile \
+  -t pcap-golang:latest $(pwd)
+
 docker_build $(pwd)/pcap-fsnotify
 docker_build $(pwd)/supervisord
+docker_build $(pwd)/tcpdumpw
 
 # build `tcpdump` sidecar image
 docker buildx build \

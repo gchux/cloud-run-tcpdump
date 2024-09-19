@@ -14,7 +14,7 @@
 # limitations under the License.
 
 
-FROM --platform=linux/amd64 pcap-sidecar:v1.0.0-golang1.22.4 AS builder
+FROM --platform=linux/amd64 pcap-golang:latest AS builder
 
 ARG DEBIAN_FRONTEND=noninteractive
 ARG BIN_NAME=tcpdumpw
