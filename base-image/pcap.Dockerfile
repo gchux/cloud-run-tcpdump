@@ -12,7 +12,7 @@ USER 0:0
 # see: https://github.com/the-tcpdump-group/libpcap/blob/master/INSTALL.md
 
 RUN apt-get -qq update  > /dev/null \
-    && apt-get -qq -y install build-essential flex bison wget \
+    && apt-get -qq -y install build-essential flex bison wget > /dev/null \
     && apt-get -qq clean > /dev/null
 
 RUN wget https://www.tcpdump.org/release/libpcap-${LIBPCAP_VERSION}.tar.gz \
@@ -35,7 +35,7 @@ WORKDIR /app
 USER 0:0
 
 RUN apt-get -qq update  > /dev/null \
-    && apt-get -qq -y install build-essential wget \
+    && apt-get -qq -y install build-essential wget > /dev/null \
     && apt-get -qq clean > /dev/null
 
 # same as `apt-get install libpcap-dev`: install shared objects and header files

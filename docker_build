@@ -21,6 +21,18 @@ else
   mkdir -p ${BIN_DIR}
 fi
 
+function docker_build_base {
+  DOCKER_FILE="${BASE_IMAGE_DIR}/${1}.Dockerfile"
+  echo "building: ${DOCKER_FILE}"
+  docker buildx build --no-cache \
+    --file=${DOCKER_FILE} \
+    -t ${2}:latest ${BASE_IMAGE_DIR}
+  if [ $? -ne 0 ]; then
+    echo "failed to build: ${DOCKER_FILE}"
+    kill -s TERM $MAIN_PID
+  fi
+}
+
 function docker_build {
   echo "building: ${1}"
   docker buildx build \
@@ -34,18 +46,9 @@ function docker_build {
   fi
 }
 
-# build base image for go builders and sidecar
-docker buildx build --no-cache \
-  --file=${BASE_IMAGE_DIR}/Dockerfile \
-  -t pcap-base:latest $(pwd)
-
-docker buildx build --no-cache \
-  --file=${BASE_IMAGE_DIR}/sidecar.Dockerfile \
-  -t pcap-sidecar:latest $(pwd)
-
-docker buildx build --no-cache \
-  --file=${BASE_IMAGE_DIR}/golang.Dockerfile \
-  -t pcap-golang:latest $(pwd)
+docker_build_base pcap pcap-base
+docker_build_base sidecar pcap-sidecar
+docker_build_base golang pcap-golang
 
 docker_build $(pwd)/pcap-fsnotify
 docker_build $(pwd)/supervisord
