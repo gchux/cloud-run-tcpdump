@@ -13,8 +13,6 @@ RUN apt-get -qq update  > /dev/null \
     && apt-get -qq -y install tzdata curl jq fuse > /dev/null \
     && apt-get -qq clean > /dev/null
 
-USER 0:0
-
 COPY --from=pcap-base:latest /dist/bin/ /usr/bin/
 COPY --from=pcap-base:latest /dist/bin/ /usr/bin/
 COPY --from=pcap-base:latest /dist/lib/ /lib/x86_64-linux-gnu/
