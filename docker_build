@@ -2,16 +2,25 @@
 
 # set -eux -o pipefail
 
+source $(pwd)/env/${1}.env
+
 # this script requires exactly 1 argument: the full container image URI
-if [ "${1}" = "" ]
+if [ "${2}" = "" ]
 then
-  echo "Usage: $0 <docker_image_uri>"
+  echo "Usage: $0 <runtime.env> <docker_image_uri>"
   exit
 fi
 
 export MAIN_PID=$$
+
 export BIN_DIR="$(pwd)/bin"
 export BASE_IMAGE_DIR="$(pwd)/base-image"
+export SUPERVISORD_DIR="$(pwd)/supervisord"
+export PCAPFSN_DIR="$(pwd)/pcap-fsnotify"
+export TCPDUMPW_DIR="$(pwd)/tcpdumpw"
+
+export PCAPCLI_VERSION="$(grep 'pcap-cli v' ${TCPDUMPW_DIR}/go.mod | grep -v 'replace' | awk '{print $2}' | sort | uniq | head -1 | tr -d '\n')"
+export DOCKER_TAG_SUFFIX="libpcap-v${LIBPCAP_VERSION}_tcpdump-v${TCPDUMP_VERSION}"
 
 if [ -d ${BIN_DIR} ]; then
   echo "cleaning release directory: ${BIN_DIR}"
@@ -24,9 +33,15 @@ fi
 function docker_build_base {
   DOCKER_FILE="${BASE_IMAGE_DIR}/${1}.Dockerfile"
   echo "building: ${DOCKER_FILE}"
-  docker buildx build --no-cache \
-    --file=${DOCKER_FILE} \
-    -t ${2}:latest ${BASE_IMAGE_DIR}
+  docker buildx build --no-cache --file=${DOCKER_FILE} \
+    --build-arg="LIBPCAP_VERSION=${LIBPCAP_VERSION}" \
+    --build-arg="TCPDUMP_VERSION=${TCPDUMP_VERSION}" \
+    --build-arg="LIBPCAP_URL=${LIBPCAP_URL}" \
+    --build-arg="TCPDUMP_URL=${TCPDUMP_URL}" \
+    --label="LIBPCAP_VERSION=${LIBPCAP_VERSION}" \
+    --label="TCPDUMP_VERSION=${TCPDUMP_VERSION}" \
+    -t "pcap-${1}:${DOCKER_TAG_SUFFIX}" \
+    ${BASE_IMAGE_DIR}
   if [ $? -ne 0 ]; then
     echo "failed to build: ${DOCKER_FILE}"
     kill -s TERM $MAIN_PID
@@ -36,26 +51,33 @@ function docker_build_base {
 function docker_build {
   echo "building: ${1}"
   docker buildx build \
-    --platform=linux/amd64 \
-    --file=${1}/Dockerfile \
-    --no-cache --output ${BIN_DIR} \
-    --target releaser ${1}
+    --platform=linux/amd64 --file=${1}/Dockerfile \
+    --build-arg="LIBPCAP_VERSION=${LIBPCAP_VERSION}" \
+    --build-arg="TCPDUMP_VERSION=${TCPDUMP_VERSION}" \
+    --no-cache --output ${BIN_DIR} --target releaser ${1}
   if [ $? -ne 0 ]; then
     echo "failed to build: ${1}"
     kill -s TERM $MAIN_PID
   fi
 }
 
-docker_build_base pcap pcap-base
-docker_build_base sidecar pcap-sidecar
-docker_build_base golang pcap-golang
+echo "Building Cloud Run PCAP sidecar: LIBPCAP-v${LIBPCAP_VERSION} + TCPDUMP-v${TCPDUMP_VERSION} + PCAP_CLI-${PCAPCLI_VERSION}"
 
-docker_build $(pwd)/pcap-fsnotify
-docker_build $(pwd)/supervisord
-docker_build $(pwd)/tcpdumpw
+docker_build_base base
+docker_build_base sidecar
+docker_build_base golang
+
+docker_build ${SUPERVISORD_DIR}
+docker_build ${PCAPFSN_DIR}
+docker_build ${TCPDUMPW_DIR}
 
 # build `tcpdump` sidecar image
 docker buildx build \
-  --platform=linux/amd64 \
-  --file=$(pwd)/Dockerfile \
-  --no-cache -t ${1} $(pwd)
+  --platform=linux/amd64 --file=$(pwd)/Dockerfile \
+  --build-arg="LIBPCAP_VERSION=${LIBPCAP_VERSION}" \
+  --build-arg="TCPDUMP_VERSION=${TCPDUMP_VERSION}" \
+  --label="LIBPCAP_VERSION=${LIBPCAP_VERSION}" \
+  --label="TCPDUMP_VERSION=${TCPDUMP_VERSION}" \
+  --label="PCAPCLI_VERSION=${PCAPCLI_VERSION}" \
+  --no-cache -t "${2}-${DOCKER_TAG_SUFFIX}_pcapcli-${PCAPCLI_VERSION}" \
+  $(pwd)

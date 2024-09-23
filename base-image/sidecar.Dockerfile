@@ -1,5 +1,10 @@
 # syntax=docker/dockerfile:1.4
 
+ARG LIBPCAP_VERSION='1.10.5'
+ARG TCPDUMP_VERSION='4.99.5'
+
+FROM pcap-base:libpcap-v${LIBPCAP_VERSION}_tcpdump-v${TCPDUMP_VERSION} AS base
+
 FROM --platform=linux/amd64 ubuntu:22.04
 
 ARG DEBIAN_FRONTEND=noninteractive
@@ -13,9 +18,8 @@ RUN apt-get -qq update  > /dev/null \
     && apt-get -qq -y install tzdata curl jq fuse > /dev/null \
     && apt-get -qq clean > /dev/null
 
-COPY --from=pcap-base:latest /dist/bin/ /usr/bin/
-COPY --from=pcap-base:latest /dist/bin/ /usr/bin/
-COPY --from=pcap-base:latest /dist/lib/ /lib/x86_64-linux-gnu/
+COPY --from=base /dist/bin/ /usr/bin/
+COPY --from=base /dist/lib/ /lib/x86_64-linux-gnu/
 
 RUN ldconfig -v
 
