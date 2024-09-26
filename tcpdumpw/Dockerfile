@@ -13,15 +13,16 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+ARG LIBPCAP_VERSION='1.10.5'
+ARG TCPDUMP_VERSION='4.99.5'
 
-FROM --platform=linux/amd64 golang:1.22.4-bookworm AS builder
+FROM --platform=linux/amd64 pcap-golang:libpcap-v${LIBPCAP_VERSION}_tcpdump-v${TCPDUMP_VERSION} AS builder
 
 ARG DEBIAN_FRONTEND=noninteractive
-ARG BIN_NAME=tcpdumpw
+ARG BIN_NAME='tcpdumpw'
 
 WORKDIR /app
 
-RUN apt-get -qq update > /dev/null && apt-get install -qq -y libpcap-dev && apt-get -qq clean > /dev/null
 RUN go install mvdan.cc/gofumpt@latest
 
 COPY ./go.mod go.mod

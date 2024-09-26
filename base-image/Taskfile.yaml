@@ -1,0 +1,79 @@
+# Copyright 2024 Google LLC
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+version: "3"
+
+tasks:
+  docker-build-base-image:
+    requires:
+      vars:
+        - ENV
+        - TARGET
+    vars:
+      RUNTIME_ENVIRONMENT: '{{default "cloud_run_gen2" .ENV}}'
+    dotenv:
+      - "{{.USER_WORKING_DIR}}/../env/{{.RUNTIME_ENVIRONMENT}}.env"
+    cmds:
+      - echo "Building image 'pcap-{{.TARGET}}:libpcap-v${LIBPCAP_VERSION}_tcpdump-v${TCPDUMP_VERSION}'"
+      - >-
+        docker buildx build
+        --platform=linux/amd64
+        --no-cache --file={{.TARGET}}.Dockerfile
+        --build-arg="LIBPCAP_VERSION=$LIBPCAP_VERSION"
+        --build-arg="TCPDUMP_VERSION=$TCPDUMP_VERSION"
+        --build-arg="LIBPCAP_URL=$LIBPCAP_URL"
+        --build-arg="TCPDUMP_URL=$TCPDUMP_URL"
+        --label="LIBPCAP_VERSION=$TCPDUMP_VERSION"
+        --label="TCPDUMP_VERSION=$TCPDUMP_VERSION"
+        -t pcap-{{.TARGET}}:libpcap-v${LIBPCAP_VERSION}_tcpdump-v${TCPDUMP_VERSION}
+        {{.USER_WORKING_DIR}}
+
+  docker-build-pcap-base:
+    requires:
+      vars: [ENV]
+    cmds:
+      - task: docker-build-base-image
+        vars:
+          ENV: "{{.ENV}}"
+          TARGET: "base"
+
+  docker-build-pcap-sidecar:
+    requires:
+      vars: [ENV]
+    cmds:
+      - task: docker-build-base-image
+        vars:
+          ENV: "{{.ENV}}"
+          TARGET: "sidecar"
+
+  docker-build-pcap-golang:
+    cmds:
+      - task: docker-build-base-image
+        vars:
+          ENV: "{{.ENV}}"
+          TARGET: "golang"
+
+  docker-build-all:
+    requires:
+      vars: [ENV]
+    cmds:
+      - task: docker-build-pcap-base
+        vars:
+          ENV: "{{.ENV}}"
+      - task: docker-build-pcap-golang
+        vars:
+          ENV: "{{.ENV}}"
+      - task: docker-build-pcap-sidecar
+        vars:
+          ENV: "{{.ENV}}"

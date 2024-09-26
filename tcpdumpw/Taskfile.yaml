@@ -22,6 +22,12 @@ tasks:
       - git submodule update --recursive --remote ../pcap-cli
 
   docker-build:
+    requires:
+      vars: [ENV]
+    vars:
+      RUNTIME_ENVIRONMENT: '{{default "cloud_run_gen2" .ENV}}'
+    dotenv:
+      - "{{.USER_WORKING_DIR}}/../env/{{.RUNTIME_ENVIRONMENT}}.env"
     cmds:
       - task: update-gitmodules
       - >-
@@ -29,10 +35,14 @@ tasks:
         --platform=linux/amd64
         --no-cache --file=Dockerfile
         --build-arg="BIN_NAME=$TCPDUMPW_BIN_NAME"
+        --build-arg="LIBPCAP_VERSION=$LIBPCAP_VERSION"
+        --build-arg="TCPDUMP_VERSION=$TCPDUMP_VERSION"
         --output={{.USER_WORKING_DIR}}
         --target=releaser {{.USER_WORKING_DIR}}
     sources:
       - ./main.go
+      - ./go.mod
+      - ./go.sum
 
   go-fmt:
     cmds:
