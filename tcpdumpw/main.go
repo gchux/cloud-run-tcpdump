@@ -196,7 +196,9 @@ func waitJobDone(
 	case <-timer.C:
 		jlog(ERROR, job, "timed out waiting for PCAP job execution to stop")
 	case <-jobDoneSignal:
-		timer.Stop()
+		if !timer.Stop() {
+			<-timer.C
+		}
 		jlog(INFO, job, fmt.Sprintf("PCAP job execution stopped | latency: %v", time.Since(*ctxDoneTS)))
 	}
 }
