@@ -356,7 +356,7 @@ func main() {
 	// Create new watcher.
 	watcher, err := fsnotify.NewBufferedWatcher(100)
 	if err != nil {
-		sugar.Fatalw(fmt.Sprintf("failed to create FS watcher: %v", err),
+		sugar.Errorw(fmt.Sprintf("failed to create FS watcher: %v", err),
 			"sidecar", sidecar, "module", module, "tags", tags,
 			"data", map[string]interface{}{
 				"event": PCAP_FSNINI,
@@ -373,7 +373,7 @@ func main() {
 	// Watch the PCAP files source directory for FS events.
 	if isActive.CompareAndSwap(false, true) {
 		if err = watcher.Add(*src_dir); err != nil {
-			sugar.Fatalw(fmt.Sprintf("failed to watch directory '%s': %v", *src_dir, err),
+			sugar.Errorw(fmt.Sprintf("failed to watch directory '%s': %v", *src_dir, err),
 				"sidecar", sidecar, "module", module, "tags", tags,
 				"data", map[string]interface{}{
 					"event": PCAP_FSNERR,
@@ -421,7 +421,7 @@ func main() {
 					ticker.Stop()
 					return
 				}
-				sugar.Fatalw(fmt.Sprintf("%v", fsnErr),
+				sugar.Errorw(fmt.Sprintf("%v", fsnErr),
 					"sidecar", sidecar, "module", module, "tags", tags,
 					"data", map[string]interface{}{
 						"event":  PCAP_FSNERR,
@@ -500,7 +500,7 @@ func main() {
 		sugar.Infow(fmt.Sprintf("watching directory: %s", *src_dir),
 			"data", initEvent, "sidecar", sidecar, "module", module, "tags", tags)
 	} else if isActive.CompareAndSwap(true, false) {
-		sugar.Fatalw(fmt.Sprintf("error at initialization: %v", err),
+		sugar.Errorw(fmt.Sprintf("error at initialization: %v", err),
 			"sidecar", sidecar, "module", module, "tags", tags,
 			"data", map[string]interface{}{
 				"event": PCAP_FSNINI,

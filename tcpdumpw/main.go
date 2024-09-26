@@ -169,18 +169,28 @@ func beforeTcpdump(id uuid.UUID, name string) {
 	xid.Store(uuid.New())
 }
 
-func waitJobDone(job *tcpdumpJob, wg *sync.WaitGroup, ctxDoneTS *time.Time, deadline *time.Duration) {
+func waitJobDone(
+	job *tcpdumpJob,
+	wg *sync.WaitGroup,
+	ctxDoneTS *time.Time,
+	deadline *time.Duration,
+	stopDeadline chan<- *time.Duration,
+) {
 	jobDoneSignal := make(chan struct{})
 
 	maxWaitTime := *deadline - time.Since(*ctxDoneTS)
 	timer := time.NewTimer(maxWaitTime)
 
-	go func(wg *sync.WaitGroup, deadline *time.Duration, signal chan struct{}) {
+	go func(wg *sync.WaitGroup, ctxDoneTS *time.Time, deadline *time.Duration, signal chan struct{}) {
 		jlog(INFO, job, fmt.Sprintf("waiting for PCAP job execution to stop | deadline: %v", *deadline))
+		for range job.tasks {
+			taskStopDeadline := *deadline - time.Since(*ctxDoneTS)
+			stopDeadline <- &taskStopDeadline
+		}
 		// wait for tasks to gracefully stop
 		wg.Wait()
 		close(signal)
-	}(wg, &maxWaitTime, jobDoneSignal)
+	}(wg, ctxDoneTS, &maxWaitTime, jobDoneSignal)
 
 	select {
 	case <-timer.C:
@@ -198,12 +208,13 @@ func start(ctx context.Context, timeout *time.Duration, job *tcpdumpJob) error {
 		defer cancel()
 	}
 
+	stopDeadline := make(chan *time.Duration, len(job.tasks))
 	for _, task := range job.tasks {
 		wg.Add(1)
 		go func(ctx context.Context, wg *sync.WaitGroup, j *tcpdumpJob, t *pcapTask) {
 			defer wg.Done()
 			// all PCAP engines are context aware
-			err := t.engine.Start(ctx, t.writers)
+			err := t.engine.Start(ctx, t.writers, stopDeadline)
 			if err != nil {
 				jlog(INFO, j, fmt.Sprintf("PCAP task execution stopped: %s | %s", t.iface, err.Error()))
 			} else {
@@ -217,7 +228,8 @@ func start(ctx context.Context, timeout *time.Duration, job *tcpdumpJob) error {
 	ctxDoneTS := time.Now()
 
 	deadline := 2 * time.Second
-	waitJobDone(job, &wg, &ctxDoneTS, &deadline)
+	waitJobDone(job, &wg, &ctxDoneTS, &deadline, stopDeadline)
+	close(stopDeadline)
 
 	return ctx.Err()
 }
@@ -414,8 +426,14 @@ func startTCPListener(ctx context.Context, port *uint, job *tcpdumpJob, stopChan
 
 func waitDone(job *tcpdumpJob, exitSignal *string) {
 	// wait for all PCAP tasks to be gracefully stopped
-	jlog(INFO, job, "waiting for PCAP tasks to gracefully terminate")
 	wg.Wait()
+
+	for _, task := range job.tasks {
+		for _, writer := range task.writers {
+			writer.Rotate()
+			writer.Close()
+		}
+	}
 
 	// ToDo: use https://github.com/gofrs/flock
 	// `TCPDUMPW_EXITED` file creation signals `pcap_fsn` to start its own termination process
@@ -425,7 +443,7 @@ func waitDone(job *tcpdumpJob, exitSignal *string) {
 		jlog(INFO, job, fmt.Sprintf("'tcpdumpw' termination signal created: %s", terminationSignal.Name()))
 		terminationSignal.Close()
 	} else {
-		jlog(ERROR, job, fmt.Sprintf("'tcpdumpw' termination signal creation failed: %s | %s", terminationSignal.Name(), err.Error()))
+		jlog(ERROR, job, fmt.Sprintf("'tcpdumpw' termination signal creation failed: %s | %s", *exitSignal, err.Error()))
 	}
 }
 
@@ -440,7 +458,11 @@ func main() {
 			*pcap_iface, *use_cron, *cron_exp, *timezone, *duration, *extension, *directory, *snaplen, *filter, *interval, *tcp_dump, *json_dump, *json_log, *ordered, *hc_port, *gcp_gae))
 
 	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
+	defer func() {
+		if r := recover(); r != nil {
+			fmt.Fprintln(os.Stderr, "panic", r)
+		}
+	}()
 
 	tasks := createTasks(ctx, pcap_iface, timezone, directory, extension, filter, snaplen, interval, tcp_dump, json_dump, json_log, ordered, conntrack, gcp_gae)
 
@@ -464,7 +486,7 @@ func main() {
 	job := &tcpdumpJob{Jid: uuid.Nil.String(), tasks: tasks}
 
 	signals := make(chan os.Signal, 1)
-	signal.Notify(signals, syscall.SIGTERM, syscall.SIGINT, syscall.SIGHUP, syscall.SIGQUIT)
+	signal.Notify(signals, syscall.SIGTERM, syscall.SIGINT)
 	go func() {
 		signal := <-signals
 		jlog(INFO, job, fmt.Sprintf("signaled: %v", signal))
