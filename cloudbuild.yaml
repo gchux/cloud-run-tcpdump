@@ -13,18 +13,18 @@
 # limitations under the License.
 
 steps:
-  - name: 'gcr.io/cloud-builders/docker'
-    id: "build_sidecar_image_gen1"
+- name: 'gcr.io/cloud-builders/docker'
+  id: "build_sidecar_image_gen1"
+  entrypoint: 'bash'
+  args:
+    - 'docker_build'
+    - 'cloud_run_gen1'
+    - '${_REPO_LOCATION}-docker.pkg.dev/${PROJECT_ID}/${_REPO_NAME}/${_IMAGE_NAME}:${TAG_NAME##*/}'
+- name: 'gcr.io/cloud-builders/docker'
+    id: "build_sidecar_image_gen2"
     entrypoint: 'bash'
     args:
       - 'docker_build'
-      - 'cloud_run_gen1'
+      - 'cloud_run_gen2'
       - '${_REPO_LOCATION}-docker.pkg.dev/${PROJECT_ID}/${_REPO_NAME}/${_IMAGE_NAME}:${TAG_NAME##*/}'
-  - name: 'gcr.io/cloud-builders/docker'
-      id: "build_sidecar_image_gen2"
-      entrypoint: 'bash'
-      args:
-        - 'docker_build'
-        - 'cloud_run_gen2'
-        - '${_REPO_LOCATION}-docker.pkg.dev/${PROJECT_ID}/${_REPO_NAME}/${_IMAGE_NAME}:${TAG_NAME##*/}'
 tags: ['pcap-sidecar', 'test']
