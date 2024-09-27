@@ -4,10 +4,17 @@
 
 source $(pwd)/env/${1}.env
 
-# this script requires exactly 1 argument: the full container image URI
+# the 2nd argument of this script expects the full container image URI minus the tag
 if [ "${2}" = "" ]
 then
   echo "Usage: $0 <runtime.env> <docker_image_uri>"
+  exit
+fi
+
+# the 3rd argument of this script expects the tag e.g. v#.#.#
+if [ "${3}" = "" ]
+then
+  echo "Usage: $0 <runtime.env> <tag>"
   exit
 fi
 
@@ -79,5 +86,5 @@ docker buildx build \
   --label="LIBPCAP_VERSION=${LIBPCAP_VERSION}" \
   --label="TCPDUMP_VERSION=${TCPDUMP_VERSION}" \
   --label="PCAPCLI_VERSION=${PCAPCLI_VERSION}" \
-  --no-cache -t "${2}-${DOCKER_TAG_SUFFIX}_pcapcli-${PCAPCLI_VERSION}" \
-  $(pwd)
+  --no-cache -t "${2}:${3}" -t "${2}:${$IMAGE_TAG}" \
+  --push $(pwd)
