@@ -28,3 +28,5 @@ steps:
     - 'cloud_run_gen2'
     - '${_REPO_LOCATION}-docker.pkg.dev/${PROJECT_ID}/${_REPO_NAME}/${_IMAGE_NAME}:${TAG_NAME##*/}'
 tags: ['pcap-sidecar', 'test']
+options:
+  logging: CLOUD_LOGGING_ONLY
