@@ -26,6 +26,7 @@ import (
 	"os/signal"
 	"regexp"
 	"strconv"
+	"strings"
 	"sync"
 	"sync/atomic"
 	"syscall"
@@ -38,6 +39,8 @@ import (
 	"github.com/gchux/pcap-cli/pkg/pcap"
 	"github.com/go-co-op/gocron/v2"
 	"github.com/google/uuid"
+
+	pcapFilter "github.com/gchux/cloud-run-tcpdump/tcpdumpw/pkg/filter"
 )
 
 func UNUSED(x ...interface{}) {}
@@ -60,6 +63,8 @@ var (
 	gcp_gae    = flag.Bool("gae", false, "enable GAE Flex environment configuration")
 	pcap_iface = flag.String("iface", "", "prefix to scan for network interfaces to capture from")
 	hc_port    = flag.Uint("hc_port", 12345, "TCP port for health checking")
+	hosts      = flag.String("hosts", "", "FQDNs to be translated into IPs to apply as packet filter")
+	tcp_flags  = flag.String("tcp_flags", "", "TCP flags to be set for a segment to be captured")
 )
 
 type (
@@ -264,6 +269,7 @@ func tcpdump(timeout time.Duration) error {
 
 func newPcapConfig(
 	iface, format, output, extension, filter string,
+	filters []pcap.PcapFilterProvider,
 	snaplen, interval int,
 	ordered, conntrack bool,
 ) *pcap.PcapConfig {
@@ -279,12 +285,14 @@ func newPcapConfig(
 		Interval:  interval,
 		Ordered:   ordered,
 		ConnTrack: conntrack,
+		Filters:   filters,
 	}
 }
 
 func createTasks(
 	ctx context.Context,
 	ifacePrefix, timezone, directory, extension, filter *string,
+	filters []pcap.PcapFilterProvider,
 	snaplen, interval *int,
 	tcpdump, jsondump, jsonlog, ordered, conntrack, gcpGAE *bool,
 ) []*pcapTask {
@@ -311,8 +319,8 @@ func createTasks(
 
 		output := fmt.Sprintf(runFileOutput, *directory, netIface.Index, netIface.Name)
 
-		tcpdumpCfg := newPcapConfig(iface, "pcap", output, *extension, *filter, *snaplen, *interval, *ordered, *conntrack)
-		jsondumpCfg := newPcapConfig(iface, "json", output, "json", *filter, *snaplen, *interval, *ordered, *conntrack)
+		tcpdumpCfg := newPcapConfig(iface, "pcap", output, *extension, *filter, filters, *snaplen, *interval, *ordered, *conntrack)
+		jsondumpCfg := newPcapConfig(iface, "json", output, "json", *filter, filters, *snaplen, *interval, *ordered, *conntrack)
 
 		// premature optimization is the root of all evil
 		var engineErr, writerErr error = nil, nil
@@ -466,7 +474,15 @@ func main() {
 		}
 	}()
 
-	tasks := createTasks(ctx, pcap_iface, timezone, directory, extension, filter, snaplen, interval, tcp_dump, json_dump, json_log, ordered, conntrack, gcp_gae)
+	filters := []pcap.PcapFilterProvider{}
+	if *hosts != "" && !strings.EqualFold(*hosts, "ALL") {
+		filters = append(filters, pcapFilter.NewDNSFilterProvider(hosts))
+	}
+	if *tcp_flags != "" && !strings.EqualFold(*tcp_flags, "ALL") {
+		filters = append(filters, pcapFilter.NewTCPFlagsFilterProvider(tcp_flags))
+	}
+
+	tasks := createTasks(ctx, pcap_iface, timezone, directory, extension, filter, filters, snaplen, interval, tcp_dump, json_dump, json_log, ordered, conntrack, gcp_gae)
 
 	if len(tasks) == 0 {
 		jlog(ERROR, &emptyTcpdumpJob, "no PCAP tasks available")

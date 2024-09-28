@@ -2,13 +2,15 @@ module github.com/gchux/cloud-run-tcpdump/tcpdumpw
 
 go 1.22.4
 
-// replace github.com/gchux/pcap-cli v1.0.0-rc113 => ../pcap-cli
+// replace github.com/gchux/pcap-cli v1.0.0-rc115 => ../pcap-cli
 
 require (
 	github.com/alphadose/haxmap v1.4.0
-	github.com/gchux/pcap-cli v1.0.0-rc113
+	github.com/deckarep/golang-set/v2 v2.6.0
+	github.com/gchux/pcap-cli v1.0.0-rc115
 	github.com/go-co-op/gocron/v2 v2.5.0
 	github.com/google/uuid v1.6.0
+	github.com/wissance/stringFormatter v1.2.0
 )
 
 require (
@@ -18,7 +20,6 @@ require (
 	dario.cat/mergo v1.0.0 // indirect
 	github.com/Jeffail/gabs/v2 v2.7.0 // indirect
 	github.com/containerd/console v1.0.3 // indirect
-	github.com/deckarep/golang-set/v2 v2.6.0 // indirect
 	github.com/easyCZ/logrotate v0.3.0 // indirect
 	github.com/google/gopacket v1.1.19 // indirect
 	github.com/gookit/color v1.5.4 // indirect
@@ -34,7 +35,6 @@ require (
 	github.com/robfig/cron/v3 v3.0.1 // indirect
 	github.com/segmentio/fasthash v1.0.3 // indirect
 	github.com/tejzpr/ordered-concurrently/v3 v3.0.1 // indirect
-	github.com/wissance/stringFormatter v1.2.0 // indirect
 	github.com/xo/terminfo v0.0.0-20220910002029-abceb7e1c41e // indirect
 	github.com/zhangyunhao116/fastrand v0.3.0 // indirect
 	github.com/zhangyunhao116/skipmap v0.10.1 // indirect

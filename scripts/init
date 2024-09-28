@@ -76,6 +76,7 @@ echo "PCAP_DIR=${PCAP_DIR}" >> ${ENV_FILE}
 
 echo "PCAP_GCS_BUCKET=${PCAP_GCS_BUCKET}" >> ${ENV_FILE}
 echo "GCS_BUCKET=${PCAP_GCS_BUCKET}" >> ${ENV_FILE}
+echo "PCAP_IFACE=${PCAP_IFACE:-eth}" >> ${ENV_FILE}
 echo "PCAP_FILTER=${PCAP_FILTER}" >> ${ENV_FILE}
 echo "PCAP_SECS=${PCAP_SECS}" >> ${ENV_FILE}
 echo "PCAP_SNAPLEN=${PCAP_SNAPLEN}" >> ${ENV_FILE}
@@ -90,8 +91,13 @@ echo "PCAP_TCPDUMP=${PCAP_TCPDUMP:-true}" >> ${ENV_FILE}
 echo "PCAP_JSONDUMP=${PCAP_JSONDUMP}" >> ${ENV_FILE}
 echo "PCAP_JSONDUMP_LOG=${PCAP_JSONDUMP_LOG}" >> ${ENV_FILE}
 
-echo "PCAP_IFACE=${PCAP_IFACE:-eth}" >> ${ENV_FILE}
+# healtch check TCP port
 echo "PCAP_HC_PORT=${PCAP_HC_PORT:-12345}" >> ${ENV_FILE}
+
+# comma separated list of FQDNs (hosts) to capture traffic to/from
+exho "PCAP_HOSTS=${PCAP_HOSTS:-ALL}" >> ${ENV_FILE}
+# comma separated list of lowercase TCP flags that a segment must contain to be captured
+exho "PCAP_TCP_FLAGS=${PCAP_TCP_FLAGS:-ALL}" >> ${ENV_FILE}
 
 # Create both paths to store PCAP files
 mkdir -p ${PCAP_MNT}
