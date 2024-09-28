@@ -276,10 +276,6 @@ More advanced use cases may benefit from scheduling `tcpdump` executions. Use th
 
 ## How to build the sidecar yourself
 
-<details>
-
-<summary>How to build the sidecar yourself</summary>
-
 1. Define the `PROJECT_ID` environment variable; i/e: `export PROJECT_ID='...'`.
 
 2. Clone this repository: 
@@ -300,28 +296,21 @@ Continue with one of the following alternatives:
 4. Build and push the `tcpdump` sidecar container image:
 
      ```sh
-     export TCPDUMP_IMAGE_URI='...' # this is usually Artifact Registry
-     ./docker_build ${TCPDUMP_IMAGE_URI}
+     export TCPDUMP_IMAGE_URI='...' # this is usually Artifact Registry e.g. '${_REPO_LOCATION}-docker.pkg.dev/${PROJECT_ID}/${_REPO_NAME}/${_IMAGE_NAME}'
+     export RUNTIME_ENVIRONMENT='...' # either 'cloud_run_gen1' or 'cloud_run_gen2'
+     ./docker_build ${RUNTIME_ENVIRONMENT} ${TCPDUMP_IMAGE_URI}
      ```
 
 ### Using [Cloud Build](https://cloud.google.com/build/docs/build-config-file-schema)
 
 This approach assumes that Artifact Registry is available in `PROJECT_ID`.
 
-> If you skipped step (2), clone the [**gcb** branch](https://github.com/gchux/cloud-run-tcpdump/tree/gcb):
->
-> ```sh
-> git clone --depth=1 --branch=gcb --single-branch https://github.com/gchux/cloud-run-tcpdump.git
-> ```
-
 4. Define the following environment variables:
 
      ```sh
-     export REPO_LOCATION='...' # Artifact Registry Docker repository location
+     export REPO_LOCATION='...' # Artifact Registry Docker repository location e.g. us-central1
      export REPO_NAME='...'     # Artifact Registry Docker repository name
-     export IMAGE_NAME='...'    # container image name; i/e: `sidecars/tcpdump` 
-     export IMAGE_TAG='...'     # container image version; i/e: `latest`
-     export TCPDUMP_IMAGE_URI="${REPO_LOCATION}-docker.pkg.dev/${PROJECT_ID}/${REPO_NAME}/${IMAGE_NAME}:${IMAGE_TAG}" # using Artifact Registry
+     export IMAGE_NAME='...'    # container image name; i/e: `pcap-sidecar` 
      ```
 
 5. Build and push the `tcpdump` sidecar container image using Cloud Build: 
@@ -330,12 +319,10 @@ This approach assumes that Artifact Registry is available in `PROJECT_ID`.
      gcloud builds submit \
        --project=${PROJECT_ID} \
        --config=$(pwd)/cloudbuild.yaml \
-       --substitutions='_REPO_LOCATION=${REPO_LOCATION},_REPO_NAME=${REPO_NAME},_IMAGE_NAME=${IMAGE_NAME},_IMAGE_TAG=${IMAGE_TAG}' $(pwd)
+       --substitutions='_REPO_LOCATION=${REPO_LOCATION},_REPO_NAME=${REPO_NAME},_IMAGE_NAME=${IMAGE_NAME}' $(pwd)
      ```
 
 >    See the full list of available flags for `gcloud builds submit`: https://cloud.google.com/sdk/gcloud/reference/builds/submit
-
-</details>
 
 ## Using with App Engine Flexible
 
