@@ -20,7 +20,7 @@ steps:
     - 'docker_build'
     - 'cloud_run_gen1'
     - '${_REPO_LOCATION}-docker.pkg.dev/${PROJECT_ID}/${_REPO_NAME}/${_IMAGE_NAME}'
-    - '${_TAG_NAME}''
+    - '${_TAG_NAME}'
 - name: 'gcr.io/cloud-builders/docker'
   id: "build_sidecar_image_gen2"
   entrypoint: 'bash'
