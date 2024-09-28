@@ -41,7 +41,6 @@ The sidecar approach enables decoupling from the main –*ingress*– container 
 - [fsnotify](https://github.com/fsnotify/fsnotify) to listen for filesystem events.
 - [gocron](https://github.com/go-co-op/gocron) to schedule execution of `tcpdump`.
 - [Docker Engine](https://docs.docker.com/engine/) and [Docker CLI](https://docs.docker.com/engine/reference/commandline/cli/) to build the sidecar container image.
-- [Cloud Run](https://cloud.google.com/run/docs/deploying#multicontainer-yaml) **gen2** [execution environment](https://cloud.google.com/run/docs/about-execution-environments).
 - [pcap-cli](https://github.com/gchux/pcap-cli/tree/main) to perform packet capturing and translations to JSON.
 
 ## How it works
@@ -60,84 +59,22 @@ The sidecar uses:
 
      >    **PCAP files** are moved from the sidecar's in-memory filesystem into the mounted Cloud Storage Bucket.
 
-## How to build the sidecar
+## Prebuilt image flavors
 
-1. Define the `PROJECT_ID` environment variable; i/e: `export PROJECT_ID='...'`.
+The pcap sidecar has images that are compatible with both [Cloud Run execution environments](https://cloud.google.com/run/docs/about-execution-environments).
 
-2. Clone this repository: 
-
-     ```sh
-     git clone --depth=1 --branch=main --single-branch https://github.com/gchux/cloud-run-tcpdump.git
-     ```
-
-> [!TIP]
-> If you prefer to let Cloud Build perform all the tasks, go directly to build [using Cloud Build](#using-cloud-build)
-
-3. Move into the repository local directory: `cd cloud-run-tcpdump`.
-
-Continue with one of the following alternatives:
-
-### Using a local environment or [Cloud Shell](https://cloud.google.com/shell/docs/launching-cloud-shell)
-
-4. Build and push the `tcpdump` sidecar container image:
-
-     ```sh
-     export TCPDUMP_IMAGE_URI='...' # this is usually Artifact Registry
-     ./docker_build ${TCPDUMP_IMAGE_URI}
-     docker push ${TCPDUMP_IMAGE_URI}
-     ```
-
-### Using [Cloud Build](https://cloud.google.com/build/docs/build-config-file-schema)
-
-This approach assumes that Artifact Registry is available in `PROJECT_ID`.
-
-> If you skipped step (2), clone the [**gcb** branch](https://github.com/gchux/cloud-run-tcpdump/tree/gcb):
+> [!IMPORTANT]  
+> * The gen1 images are compatible for **BOTH** gen1 and gen2 Cloud Run execution environments.
+> * The gen2 images are compatible for **ONLY** the gen2 Cloud Run execution environment.
 >
-> ```sh
-> git clone --depth=1 --branch=gcb --single-branch https://github.com/gchux/cloud-run-tcpdump.git
-> ```
+> This is because gen1 does not support the newest version of libpcap, whereas gen2 does.
 
-4. Define the following environment variables:
-
-     ```sh
-     export REPO_LOCATION='...' # Artifact Registry Docker repository location
-     export REPO_NAME='...'     # Artifact Registry Docker repository name
-     export IMAGE_NAME='...'    # container image name; i/e: `sidecars/tcpdump` 
-     export IMAGE_TAG='...'     # container image version; i/e: `latest`
-     export TCPDUMP_IMAGE_URI="${REPO_LOCATION}-docker.pkg.dev/${PROJECT_ID}/${REPO_NAME}/${IMAGE_NAME}:${IMAGE_TAG}" # using Artifact Registry
-     ```
-
-5. Build and push the `tcpdump` sidecar container image using Cloud Build: 
-
-     ```sh
-     gcloud builds submit \
-       --project=${PROJECT_ID} \
-       --config=$(pwd)/cloudbuild.yaml \
-       --substitutions='_REPO_LOCATION=${REPO_LOCATION},_REPO_NAME=${REPO_NAME},_IMAGE_NAME=${IMAGE_NAME},_IMAGE_TAG=${IMAGE_TAG}' $(pwd)
-     ```
-
->    See the full list of available flags for `gcloud builds submit`: https://cloud.google.com/sdk/gcloud/reference/builds/submit
-
-## Pulling the pre-built image
-
-1. Start by setting the following environment variables:
-
-     ```sh
-     export PROJECT_ID='...'    # GCP Project ID
-     export REPO_LOCATION='...' # Artifact Registry Docker repository location
-     export REPO_NAME='...'     # Artifact Registry Docker repository name
-     export IMAGE_NAME='...'    # container image name; i/e: `sidecars/tcpdump` 
-     export IMAGE_TAG='...'     # container image version; i/e: `latest`
-     export TCPDUMP_IMAGE_URI="${REPO_LOCATION}-docker.pkg.dev/${PROJECT_ID}/${REPO_NAME}/${IMAGE_NAME}:${IMAGE_TAG}" # using Artifact Registry
-     ```
-
-1. Next run the following Docker commands to pull the image, tag it, and push it to Artifact Registry:
-
-     ```sh
-     docker pull ghcr.io/gchux/cloud-run-tcpdump:latest
-     docker tag ghcr.io/gchux/cloud-run-tcpdump:latest ${TCPDUMP_IMAGE_URI}
-     docker push ${TCPDUMP_IMAGE_URI}
-     ```
+* Cloud Run gen1 images:
+    * `us-central1-docker.pkg.dev/pcap-sidecar/pcap-sidecar/pcap-sidecar:latest`
+    * `us-central1-docker.pkg.dev/pcap-sidecar/pcap-sidecar/pcap-sidecar:v#.#.#-gen1`
+* Cloud Run gen2 images:
+    *  `us-central1-docker.pkg.dev/pcap-sidecar/pcap-sidecar/pcap-sidecar:newest`
+    *  `us-central1-docker.pkg.dev/pcap-sidecar/pcap-sidecar/pcap-sidecar:v#.#.#-gen2`
 
 ## How to deploy to Cloud Run
 
@@ -150,8 +87,8 @@ This approach assumes that Artifact Registry is available in `PROJECT_ID`.
      export INGRESS_CONTAINER_NAME='...' # the name of the ingress container i/e: `app`
      export INGRESS_IMAGE_URI='...'
      export INGRESS_PORT='...'
-     export TCPDUMP_SIDECAR_NAME='...'
-     export TCPDUMP_IMAGE_URI='...'      # same as the one used to build the sidecar container image
+     export TCPDUMP_SIDECAR_NAME='...'   # the name of the pcap sidecar i/e: `pcap-sidecar`
+     export TCPDUMP_IMAGE_URI='us-central1-docker.pkg.dev/pcap-sidecar/pcap-sidecar/pcap-sidecar:latest'      # public image compatible with both gen1 & gen2. Alternatively build your own
      export PCAP_IFACE='eth'             # prefix of the interface in which packets should be captured from
      export PCAP_GCS_BUCKET='...'        # the name of the Cloud Storage Bucket to mount
      export PCAP_FILTER='...'            # the BPF filter to use; i/e: `tcp port 443`
@@ -167,7 +104,6 @@ This approach assumes that Artifact Registry is available in `PROJECT_ID`.
      gcloud run deploy ${SERVICE_NAME} \
        --project=${PROJECT_ID} \
        --region=${SERVICE_REGION} \
-       --execution-environment=gen2 \ # execution environment gen2 is mandatory
        --service-account=${SERVICE_ACCOUNT} \
        --container=${INGRESS_CONTAINER_NAME} \
        --image=${INGRESS_IMAGE_URI} \
@@ -195,7 +131,7 @@ startupProbe:
 
 ## Available configurations
 
-The `tcpdump` sidecar accespts the following environment variables:
+The `tcpdump` sidecar accepts the following environment variables:
 
 -    `PCAP_IFACE`: (STRING, **required**) a prefix for the interface to perform packet capturing on; i/e: `eth`, `ens`... 
 
@@ -252,8 +188,6 @@ More advanced use cases may benefit from scheduling `tcpdump` executions. Use th
 -    The Cloud Storage Bucket mounted by the `tcpdump` sidecar is not accessible by the main –ingress– container.
 
 -    Processes running in the `tcpdump` sidecar are not visible to the main –*ingress*– container ( or any other container ); similarly, the `tcpdump` sidecar doesn't have visibility of processes running in other containers.
-
--    Packet capturing using `tcpdump` requires raw sockets, which is only available for Cloud Run **gen2** execution environment as it offers [full Linux compatibility](https://cloud.google.com/run/docs/about-execution-environments#:~:text=second%20generation%20execution%20environment%20provides%20full%20Linux%20compatibility).
 
 -    All **PCAP files** will be stored within the Cloud Storage Bucket with the following "*hierarchy*": `PROJECT_ID`/`SERVICE_NAME`/`GCP_REGION`/`REVISION_NAME`/`INSTANCE_STARTUP_TIMESTAMP`/`INSTANCE_ID`.
 
@@ -340,7 +274,70 @@ More advanced use cases may benefit from scheduling `tcpdump` executions. Use th
 
 ---
 
-# Using with App Engine Flexible
+## How to build the sidecar yourself
+
+<details>
+
+<summary>How to build the sidecar yourself</summary>
+
+1. Define the `PROJECT_ID` environment variable; i/e: `export PROJECT_ID='...'`.
+
+2. Clone this repository: 
+
+     ```sh
+     git clone --depth=1 --branch=main --single-branch https://github.com/gchux/cloud-run-tcpdump.git
+     ```
+
+> [!TIP]
+> If you prefer to let Cloud Build perform all the tasks, go directly to build [using Cloud Build](#using-cloud-build)
+
+3. Move into the repository local directory: `cd cloud-run-tcpdump`.
+
+Continue with one of the following alternatives:
+
+### Using a local environment or [Cloud Shell](https://cloud.google.com/shell/docs/launching-cloud-shell)
+
+4. Build and push the `tcpdump` sidecar container image:
+
+     ```sh
+     export TCPDUMP_IMAGE_URI='...' # this is usually Artifact Registry
+     ./docker_build ${TCPDUMP_IMAGE_URI}
+     ```
+
+### Using [Cloud Build](https://cloud.google.com/build/docs/build-config-file-schema)
+
+This approach assumes that Artifact Registry is available in `PROJECT_ID`.
+
+> If you skipped step (2), clone the [**gcb** branch](https://github.com/gchux/cloud-run-tcpdump/tree/gcb):
+>
+> ```sh
+> git clone --depth=1 --branch=gcb --single-branch https://github.com/gchux/cloud-run-tcpdump.git
+> ```
+
+4. Define the following environment variables:
+
+     ```sh
+     export REPO_LOCATION='...' # Artifact Registry Docker repository location
+     export REPO_NAME='...'     # Artifact Registry Docker repository name
+     export IMAGE_NAME='...'    # container image name; i/e: `sidecars/tcpdump` 
+     export IMAGE_TAG='...'     # container image version; i/e: `latest`
+     export TCPDUMP_IMAGE_URI="${REPO_LOCATION}-docker.pkg.dev/${PROJECT_ID}/${REPO_NAME}/${IMAGE_NAME}:${IMAGE_TAG}" # using Artifact Registry
+     ```
+
+5. Build and push the `tcpdump` sidecar container image using Cloud Build: 
+
+     ```sh
+     gcloud builds submit \
+       --project=${PROJECT_ID} \
+       --config=$(pwd)/cloudbuild.yaml \
+       --substitutions='_REPO_LOCATION=${REPO_LOCATION},_REPO_NAME=${REPO_NAME},_IMAGE_NAME=${IMAGE_NAME},_IMAGE_TAG=${IMAGE_TAG}' $(pwd)
+     ```
+
+>    See the full list of available flags for `gcloud builds submit`: https://cloud.google.com/sdk/gcloud/reference/builds/submit
+
+</details>
+
+## Using with App Engine Flexible
 
 1.    Enable debug mode an App Engine Flexible instance: https://cloud.google.com/appengine/docs/flexible/debugging-an-instance#enabling_and_disabling_debug_mode
 
