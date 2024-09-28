@@ -2,8 +2,6 @@ package filter
 
 import (
 	"context"
-	"fmt"
-	"os"
 
 	"github.com/gchux/pcap-cli/pkg/pcap"
 	"github.com/wissance/stringFormatter"
@@ -48,11 +46,9 @@ func newPcapFilterProvider(
 }
 
 func NewDNSFilterProvider(rawFilter *string) pcap.PcapFilterProvider {
-	fmt.Fprintln(os.Stderr, "=>", *rawFilter)
 	return newPcapFilterProvider(rawFilter, newDNSFilterProvider)
 }
 
 func NewTCPFlagsFilterProvider(rawFilter *string) pcap.PcapFilterProvider {
-	fmt.Fprintln(os.Stderr, "=>", *rawFilter)
 	return newPcapFilterProvider(rawFilter, newTCPFlagsFilterProvider)
 }
