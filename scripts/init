@@ -96,6 +96,8 @@ echo "PCAP_HC_PORT=${PCAP_HC_PORT:-12345}" >> ${ENV_FILE}
 
 # comma separated list of FQDNs (hosts) to capture traffic to/from
 exho "PCAP_HOSTS=${PCAP_HOSTS:-ALL}" >> ${ENV_FILE}
+# comma separated list of translport layer addresses (ports) to capture traffic to/from
+exho "PCAP_PORTS=${PCAP_PORTS:-ALL}" >> ${ENV_FILE}
 # comma separated list of lowercase TCP flags that a segment must contain to be captured
 exho "PCAP_TCP_FLAGS=${PCAP_TCP_FLAGS:-ALL}" >> ${ENV_FILE}
 

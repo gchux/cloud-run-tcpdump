@@ -29,4 +29,5 @@ exec env /bin/tcpdumpw \
     -filter="${PCAP_FILTER}" \
     -hc_port="${PCAP_HC_PORT:-12345}" \
     -hosts="${PCAP_HOSTS:-ALL}" \
+    -ports="${PCAP_PORTS:-ALL}" \
     -tcp_flags="${PCAP_TCP_FLAGS:-ALL}"
