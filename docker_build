@@ -11,13 +11,6 @@ then
   exit
 fi
 
-# the 3rd argument of this script expects the tag e.g. v#.#.#
-if [ "${3}" = "" ]
-then
-  echo "Usage: $0 <runtime.env> <tag>"
-  exit
-fi
-
 export MAIN_PID=$$
 
 export BIN_DIR="$(pwd)/bin"
@@ -79,12 +72,28 @@ docker_build ${PCAPFSN_DIR}
 docker_build ${TCPDUMPW_DIR}
 
 # build `tcpdump` sidecar image
-docker buildx build \
-  --platform=linux/amd64 --file=$(pwd)/Dockerfile \
-  --build-arg="LIBPCAP_VERSION=${LIBPCAP_VERSION}" \
-  --build-arg="TCPDUMP_VERSION=${TCPDUMP_VERSION}" \
-  --label="LIBPCAP_VERSION=${LIBPCAP_VERSION}" \
-  --label="TCPDUMP_VERSION=${TCPDUMP_VERSION}" \
-  --label="PCAPCLI_VERSION=${PCAPCLI_VERSION}" \
-  --no-cache -t "${2}:${3}-${GEN}" -t "${2}:${$IMAGE_TAG}" \
-  --push $(pwd)
+if [ -z "$3" ]; then
+  # if no 3rd arg (v#.#.#) is provided then only apply a single tag
+  echo "Creating image with ${2}:${IMAGE_TAG} image tag"
+  docker buildx build \
+    --platform=linux/amd64 --file=$(pwd)/Dockerfile \
+    --build-arg="LIBPCAP_VERSION=${LIBPCAP_VERSION}" \
+    --build-arg="TCPDUMP_VERSION=${TCPDUMP_VERSION}" \
+    --label="LIBPCAP_VERSION=${LIBPCAP_VERSION}" \
+    --label="TCPDUMP_VERSION=${TCPDUMP_VERSION}" \
+    --label="PCAPCLI_VERSION=${PCAPCLI_VERSION}" \
+    --no-cache -t "${2}:${IMAGE_TAG}" \
+    --push $(pwd)
+else
+  # if a 3rd arg (v#.#.#) is provided then apply both tags
+  echo "Creating image with both ${2}:${IMAGE_TAG} and ${2}:${3}-${GEN} image tags"
+  docker buildx build \
+    --platform=linux/amd64 --file=$(pwd)/Dockerfile \
+    --build-arg="LIBPCAP_VERSION=${LIBPCAP_VERSION}" \
+    --build-arg="TCPDUMP_VERSION=${TCPDUMP_VERSION}" \
+    --label="LIBPCAP_VERSION=${LIBPCAP_VERSION}" \
+    --label="TCPDUMP_VERSION=${TCPDUMP_VERSION}" \
+    --label="PCAPCLI_VERSION=${PCAPCLI_VERSION}" \
+    --no-cache -t "${2}:${3}-${GEN}" -t "${2}:${IMAGE_TAG}" \
+    --push $(pwd)
+fi
