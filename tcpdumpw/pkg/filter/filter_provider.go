@@ -9,6 +9,7 @@ import (
 
 type (
 	pcapFilterProviderFactory = func(*pcap.PcapFilter) pcap.PcapFilterProvider
+	PcapFilterProviderFactory = func(*string) pcap.PcapFilterProvider
 )
 
 func applyFilter(
@@ -47,6 +48,10 @@ func newPcapFilterProvider(
 
 func NewDNSFilterProvider(rawFilter *string) pcap.PcapFilterProvider {
 	return newPcapFilterProvider(rawFilter, newDNSFilterProvider)
+}
+
+func NewPortsFilterProvider(rawFilter *string) pcap.PcapFilterProvider {
+	return newPcapFilterProvider(rawFilter, newPortsFilterProvider)
 }
 
 func NewTCPFlagsFilterProvider(rawFilter *string) pcap.PcapFilterProvider {

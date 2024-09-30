@@ -10,12 +10,12 @@ import (
 )
 
 type (
-	TCPFlagsFilterProvider struct {
+	PortsFilterProvider struct {
 		*pcap.PcapFilter
 	}
 )
 
-func (p *TCPFlagsFilterProvider) Get(ctx context.Context) (*string, bool) {
+func (p *PortsFilterProvider) Get(ctx context.Context) (*string, bool) {
 	if *p.Raw == "" {
 		return nil, false
 	}
@@ -26,22 +26,20 @@ func (p *TCPFlagsFilterProvider) Get(ctx context.Context) (*string, bool) {
 	}
 
 	flagsSet := mapset.NewThreadUnsafeSet(flags...)
-	// OR'ing out all the TCP flags: if any of the flags is set, packet will be captured
-	filter := stringFormatter.Format("tcp-{0}", strings.Join(flagsSet.ToSlice(), "|tcp-"))
-	// bitwise intersection should not yield 0, so intersection must not be empty
-	filter = stringFormatter.Format("tcp[tcpflags] & ({0}) != 0", filter)
+	filter := stringFormatter.Format("port {0}",
+		strings.Join(flagsSet.ToSlice(), " or port "))
 
 	return &filter, true
 }
 
-func (p *TCPFlagsFilterProvider) String() string {
+func (p *PortsFilterProvider) String() string {
 	if filter, ok := p.Get(context.Background()); ok {
-		return *filter
+		return stringFormatter.Format("PortsFilter[{0}] => ({1})", *p.Raw, *filter)
 	}
-	return ""
+	return "PortsFilter[nil]"
 }
 
-func (p *TCPFlagsFilterProvider) Apply(
+func (p *PortsFilterProvider) Apply(
 	ctx context.Context,
 	srcFilter *string,
 	mode pcap.PcapFilterMode,
@@ -49,8 +47,8 @@ func (p *TCPFlagsFilterProvider) Apply(
 	return applyFilter(ctx, srcFilter, p, mode)
 }
 
-func newTCPFlagsFilterProvider(filter *pcap.PcapFilter) pcap.PcapFilterProvider {
-	provider := &TCPFlagsFilterProvider{
+func newPortsFilterProvider(filter *pcap.PcapFilter) pcap.PcapFilterProvider {
+	provider := &PortsFilterProvider{
 		PcapFilter: filter,
 	}
 	return provider

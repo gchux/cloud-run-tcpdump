@@ -39,6 +39,7 @@ import (
 	"github.com/gchux/pcap-cli/pkg/pcap"
 	"github.com/go-co-op/gocron/v2"
 	"github.com/google/uuid"
+	"github.com/wissance/stringFormatter"
 
 	pcapFilter "github.com/gchux/cloud-run-tcpdump/tcpdumpw/pkg/filter"
 )
@@ -64,6 +65,7 @@ var (
 	pcap_iface = flag.String("iface", "", "prefix to scan for network interfaces to capture from")
 	hc_port    = flag.Uint("hc_port", 12345, "TCP port for health checking")
 	hosts      = flag.String("hosts", "", "FQDNs to be translated into IPs to apply as packet filter")
+	ports      = flag.String("ports", "", "TCP/UDP ports to be used in any side of the 5-tuple for a packet to be captured")
 	tcp_flags  = flag.String("tcp_flags", "", "TCP flags to be set for a segment to be captured")
 )
 
@@ -116,7 +118,7 @@ var emptyTcpdumpJob = tcpdumpJob{Jid: uuid.Nil.String()}
 var (
 	errTcpdumpDisabled  = errors.New("GCS PCAP export disabled")
 	errJsondumpDisabled = errors.New("GCS JSON export disabled")
-	errJsonLogDisabled  = errors.New("STDOUT JSON log disabled")
+	errJSONLogDisabled  = errors.New("STDOUT JSON log disabled")
 	errGaeDisabled      = errors.New("GAE JSON log disabled")
 )
 
@@ -360,7 +362,7 @@ func createTasks(
 			// writing JSON PCAP file is only enabled if `jsondump` is enabled
 			jsondumpWriter, writerErr = pcap.NewPcapWriter(ctx, &ifaceAndIndex, &output, &jsondumpCfg.Extension, timezone, *interval)
 		} else {
-			jsondumpWriter, writerErr = nil, errJsonLogDisabled
+			jsondumpWriter, writerErr = nil, errJSONLogDisabled
 		}
 		if writerErr == nil {
 			pcapWriters = append(pcapWriters, jsondumpWriter)
@@ -373,7 +375,7 @@ func createTasks(
 		if *jsonlog {
 			jsonlogWriter, writerErr = pcap.NewStdoutPcapWriter(ctx, &ifaceAndIndex)
 		} else {
-			jsonlogWriter, writerErr = nil, errJsonLogDisabled
+			jsonlogWriter, writerErr = nil, errJSONLogDisabled
 		}
 		if writerErr == nil {
 			pcapWriters = append(pcapWriters, jsonlogWriter)
@@ -457,6 +459,29 @@ func waitDone(job *tcpdumpJob, exitSignal *string) {
 	}
 }
 
+func appendFilter(
+	ctx context.Context,
+	filters []pcap.PcapFilterProvider,
+	rawFilter *string,
+	factory pcapFilter.PcapFilterProviderFactory,
+) []pcap.PcapFilterProvider {
+	select {
+	case <-ctx.Done():
+		return filters
+	default:
+		if *rawFilter == "" || strings.EqualFold(*rawFilter, "ALL") {
+			return filters
+		}
+	}
+
+	filter := factory(rawFilter)
+	filters = append(filters, filter)
+	jlog(INFO, &emptyTcpdumpJob,
+		stringFormatter.Format("using filter: {0}", filter.String()))
+
+	return filters
+}
+
 func main() {
 	flag.Parse()
 
@@ -470,17 +495,14 @@ func main() {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer func() {
 		if r := recover(); r != nil {
-			fmt.Fprintln(os.Stderr, "panic", r)
+			jlog(FATAL, &emptyTcpdumpJob, stringFormatter.Format("panic: {0}", r))
 		}
 	}()
 
 	filters := []pcap.PcapFilterProvider{}
-	if *hosts != "" && !strings.EqualFold(*hosts, "ALL") {
-		filters = append(filters, pcapFilter.NewDNSFilterProvider(hosts))
-	}
-	if *tcp_flags != "" && !strings.EqualFold(*tcp_flags, "ALL") {
-		filters = append(filters, pcapFilter.NewTCPFlagsFilterProvider(tcp_flags))
-	}
+	filters = appendFilter(ctx, filters, hosts, pcapFilter.NewDNSFilterProvider)
+	filters = appendFilter(ctx, filters, ports, pcapFilter.NewPortsFilterProvider)
+	filters = appendFilter(ctx, filters, tcp_flags, pcapFilter.NewTCPFlagsFilterProvider)
 
 	tasks := createTasks(ctx, pcap_iface, timezone, directory, extension, filter, filters, snaplen, interval, tcp_dump, json_dump, json_log, ordered, conntrack, gcp_gae)
 

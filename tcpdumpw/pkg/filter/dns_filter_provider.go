@@ -53,9 +53,9 @@ func (p *DNSFilterProvider) Get(ctx context.Context) (*string, bool) {
 
 func (p *DNSFilterProvider) String() string {
 	if filter, ok := p.Get(context.Background()); ok {
-		return *filter
+		return stringFormatter.Format("DNSFilter[{0}] => ({1})", *p.Raw, *filter)
 	}
-	return ""
+	return "DNSFilter[nil]"
 }
 
 func (p *DNSFilterProvider) Apply(
