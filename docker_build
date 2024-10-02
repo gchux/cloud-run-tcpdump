@@ -72,8 +72,8 @@ docker_build ${PCAPFSN_DIR}
 docker_build ${TCPDUMPW_DIR}
 
 # build `tcpdump` sidecar image
-if [ -z "$3" ]; then
-  # if no 3rd arg (v#.#.#) is provided then only apply a single tag
+if [[ -z "$3" ]]; then
+  # flow for manual builds: if no 3rd arg (v#.#.#) is provided then only apply a single tag newest/latest
   echo "Creating image with ${2}:${IMAGE_TAG} image tag"
   docker buildx build \
     --platform=linux/amd64 --file=$(pwd)/Dockerfile \
@@ -84,8 +84,20 @@ if [ -z "$3" ]; then
     --label="PCAPCLI_VERSION=${PCAPCLI_VERSION}" \
     --no-cache -t "${2}:${IMAGE_TAG}" \
     --push $(pwd)
+elif [[ "$3" == *"RC"* ]]; then
+  # flow for release candidates: 3rd arg / tag contains "RC", so do not push to newest/latest
+  echo "building image for release candidate (RC) with ${2}:${3}-${GEN} image tag"
+  docker buildx build \
+    --platform=linux/amd64 --file=$(pwd)/Dockerfile \
+    --build-arg="LIBPCAP_VERSION=${LIBPCAP_VERSION}" \
+    --build-arg="TCPDUMP_VERSION=${TCPDUMP_VERSION}" \
+    --label="LIBPCAP_VERSION=${LIBPCAP_VERSION}" \
+    --label="TCPDUMP_VERSION=${TCPDUMP_VERSION}" \
+    --label="PCAPCLI_VERSION=${PCAPCLI_VERSION}" \
+    --no-cache -t "${2}:${3}-${GEN}" \
+    --push $(pwd)
 else
-  # if a 3rd arg (v#.#.#) is provided then apply both tags
+  # flow for non RC version: if a 3rd arg (v#.#.#) without RC is provided then apply both tags
   echo "Creating image with both ${2}:${IMAGE_TAG} and ${2}:${3}-${GEN} image tags"
   docker buildx build \
     --platform=linux/amd64 --file=$(pwd)/Dockerfile \
