@@ -16,7 +16,7 @@ type (
 )
 
 const (
-	l4_PROTO_DEFAULT_FILTER string = "tcp,udp"
+	l4_PROTO_DEFAULT_FILTER string = "tcp or udp"
 	l4_PROTO_TCP_FILTER     string = "tcp"
 	l4_PROTO_UDP_FILTER     string = "udp"
 )
@@ -33,6 +33,11 @@ func (p *L4ProtoFilterProvider) Get(ctx context.Context) (*string, bool) {
 	}
 
 	protos := strings.Split(*p.Raw, ",")
+	if len(protos) == 0 || (len(protos) == 1 && protos[0] == "") {
+		filter := string(l4_PROTO_DEFAULT_FILTER)
+		return &filter, true
+	}
+
 	l4Protos := mapset.NewThreadUnsafeSet[string]()
 
 	for _, proto := range protos {

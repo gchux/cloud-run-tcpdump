@@ -16,7 +16,7 @@ type (
 )
 
 const (
-	l3_PROTO_DEFAULT_FILTER string = "ip,ip6"
+	l3_PROTO_DEFAULT_FILTER string = "ip or ip6"
 	l3_PROTO_IPv4_FILTER    string = "ip"
 	l3_PROTO_IPv6_FILTER    string = "ip6"
 )
@@ -33,6 +33,11 @@ func (p *L3ProtoFilterProvider) Get(ctx context.Context) (*string, bool) {
 	}
 
 	protos := strings.Split(*p.Raw, ",")
+	if len(protos) == 0 || (len(protos) == 1 && protos[0] == "") {
+		filter := string(l3_PROTO_DEFAULT_FILTER)
+		return &filter, true
+	}
+
 	l3Protos := mapset.NewThreadUnsafeSet[string]()
 
 	for _, proto := range protos {

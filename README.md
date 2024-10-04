@@ -143,7 +143,13 @@ The `tcpdump` sidecar accepts the following environment variables:
 
 - `PCAP_GCS_BUCKET`: (STRING, **required**) the name of the Cloud Storage Bucket to be mounted and used to store **PCAP files**. Ensure that you provide the runtime service account the `roles/storage.admin` so that it may create objects and read bucket metadata.
 
-- `PCAP_FILTER`: (STRING, **required**) standard `tcpdump` bpf filters to scope the packet capture to specific traffic; i/e: `tcp`.
+- `PCAP_L3_PROTOS`: (STRING, _optional_) comma separated list of network layer protocols; default value is `ipv4,ipv6`.
+
+- `PCAP_L4_PROTOS`: (STRING, _optional_) comma separated list of transport layer protocols; default value is `tcp,udp`.
+
+- `PCAP_IPV4`: (STRING, _optional_) comma separated list of IPv4 addresses or IPv4 networks using CIDR notation `ALL`. Example: `127.0.0.1,127.0.0.1/32`.
+
+- `PCAP_IPV6`: (STRING, _optional_) comma separated list of IPv6 addresses or IPv6 networks using CIDR notation `ALL`. Example: `::1,::1/128`.
 
 - `PCAP_HOSTS`: (STRING, _optional_) comma separated list of FQDNs (hosts) to capture traffic to/from; default value is `ALL`. Example: `metadata.google.internal,pubsub.googleapis.com`.
 
@@ -180,6 +186,8 @@ The `tcpdump` sidecar accepts the following environment variables:
 ### Advanced configurations
 
 More advanced use cases may benefit from scheduling `tcpdump` executions. Use the following environment variables to configure scheduling:
+
+- `PCAP_FILTER`: (STRING, _optional_) standard `tcpdump` bpf filters to scope the packet capture to specific traffic; i/e: `tcp`. Its default value is `DISABLED`.
 
 - `PCAP_USE_CRON`: (BOOLEAN, _optional_) whether to enable scheduling of `tcpdump` executions; default value is `false`.
 

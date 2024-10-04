@@ -28,8 +28,8 @@ exec env /bin/tcpdumpw \
     -snaplen=${PCAP_SNAPLEN:-0} \
     -hc_port="${PCAP_HC_PORT:-12345}" \
     -filter="${PCAP_FILTER:=DISABLED}" \
-    -l3_protos="${PCAP_L3_PROTOS:-ALL}" \
-    -l4_protos="${PCAP_L4_PROTOS:-ALL}" \
+    -l3_protos="${PCAP_L3_PROTOS:-ipv4,ipv6}" \
+    -l4_protos="${PCAP_L4_PROTOS:-tcp,udp}" \
     -ipv4="${PCAP_IPV4:-ALL}" \
     -ipv6="${PCAP_IPV6:-ALL}" \
     -hosts="${PCAP_HOSTS:-ALL}" \
