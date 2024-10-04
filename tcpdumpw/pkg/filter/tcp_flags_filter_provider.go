@@ -39,7 +39,9 @@ var (
 )
 
 func (p *TCPFlagsFilterProvider) Get(ctx context.Context) (*string, bool) {
-	if *p.Raw == "" {
+	if *p.Raw == "" ||
+		strings.EqualFold(*p.Raw, "ALL") ||
+		strings.EqualFold(*p.Raw, "ANY") {
 		return nil, false
 	}
 

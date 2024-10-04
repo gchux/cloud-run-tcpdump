@@ -26,8 +26,12 @@ exec env /bin/tcpdumpw \
     -ordered=${PCAP_ORDERED:-false} \
     -conntrack=${PCAP_CONNTRACK:-false} \
     -snaplen=${PCAP_SNAPLEN:-0} \
-    -filter="${PCAP_FILTER}" \
     -hc_port="${PCAP_HC_PORT:-12345}" \
+    -filter="${PCAP_FILTER:=DISABLED}" \
+    -l3_protos="${PCAP_L3_PROTOS:-ALL}" \
+    -l4_protos="${PCAP_L4_PROTOS:-ALL}" \
+    -ipv4="${PCAP_IPV4:-ALL}" \
+    -ipv6="${PCAP_IPV6:-ALL}" \
     -hosts="${PCAP_HOSTS:-ALL}" \
     -ports="${PCAP_PORTS:-ALL}" \
-    -tcp_flags="${PCAP_TCP_FLAGS:-ALL}"
+    -tcp_flags="${PCAP_TCP_FLAGS:-ANY}"

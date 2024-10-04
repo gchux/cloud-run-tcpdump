@@ -64,8 +64,8 @@ var (
 	pcap_iface = flag.String("iface", "", "prefix to scan for network interfaces to capture from")
 	hc_port    = flag.Uint("hc_port", 12345, "TCP port for health checking")
 	filter     = flag.String("filter", "", "BPF filter to be used for capturing packets")
-	l3_proto   = flag.String("l3_proto", "", "FQDNs to be translated into IPs to apply as packet filter")
-	l4_proto   = flag.String("l4_proto", "", "FQDNs to be translated into IPs to apply as packet filter")
+	l3_protos  = flag.String("l3_protos", "", "FQDNs to be translated into IPs to apply as packet filter")
+	l4_protos  = flag.String("l4_protos", "", "FQDNs to be translated into IPs to apply as packet filter")
 	hosts      = flag.String("hosts", "", "FQDNs to be translated into IPs to apply as packet filter")
 	ports      = flag.String("ports", "", "TCP/UDP ports to be used in any side of the 5-tuple for a packet to be captured")
 	ipv4       = flag.String("ipv4", "", "IPv4s or CIDR to be applied to the packet filter")
@@ -506,9 +506,10 @@ func main() {
 	}()
 
 	filters := []pcap.PcapFilterProvider{}
-	if *filter == "" { // if filter is empty, build it using 'Simple PCAP filters'
-		filters = appendFilter(ctx, filters, l3_proto, pcapFilter.NewL3ProtoFilterProvider)
-		filters = appendFilter(ctx, filters, l4_proto, pcapFilter.NewL4ProtoFilterProvider)
+	if *filter == "" || strings.EqualFold(*filter, "DISABLED") {
+		// if complex filter is empty, build it using 'Simple PCAP filters'
+		filters = appendFilter(ctx, filters, l3_protos, pcapFilter.NewL3ProtoFilterProvider)
+		filters = appendFilter(ctx, filters, l4_protos, pcapFilter.NewL4ProtoFilterProvider)
 		filters = appendFilter(ctx, filters, ports, pcapFilter.NewPortsFilterProvider)
 		filters = appendFilter(ctx, filters, tcp_flags, pcapFilter.NewTCPFlagsFilterProvider)
 
@@ -516,7 +517,7 @@ func main() {
 		jlog(INFO, &emptyTcpdumpJob, stringFormatter.Format("using filter: {0}", ipFilter.String()))
 		filters = append(filters, ipFilter)
 
-		if len(filters) == 0 { // if no filters are available, use a default 'catch-all' filter
+		if len(filters) == 0 { // if no simple filters are available, use a default 'catch-all' filter
 			*filter = string(defaultPcapFilter)
 		}
 	}
