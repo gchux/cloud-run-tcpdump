@@ -513,9 +513,11 @@ func main() {
 		filters = appendFilter(ctx, filters, ports, pcapFilter.NewPortsFilterProvider)
 		filters = appendFilter(ctx, filters, tcp_flags, pcapFilter.NewTCPFlagsFilterProvider)
 
-		ipFilter := pcapFilter.NewIPFilterProvider(ipv4, ipv6, hosts)
-		jlog(INFO, &emptyTcpdumpJob, stringFormatter.Format("using filter: {0}", ipFilter.String()))
-		filters = append(filters, ipFilter)
+		ipFilterProvider := pcapFilter.NewIPFilterProvider(ipv4, ipv6, hosts)
+		if ipFilter, ok := ipFilterProvider.Get(ctx); ok {
+			jlog(INFO, &emptyTcpdumpJob, stringFormatter.Format("using filter: {0}", ipFilter))
+			filters = append(filters, ipFilterProvider)
+		}
 
 		if len(filters) == 0 { // if no simple filters are available, use a default 'catch-all' filter
 			*filter = string(defaultPcapFilter)
