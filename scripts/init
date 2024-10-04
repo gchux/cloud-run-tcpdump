@@ -97,13 +97,13 @@ echo "PCAP_HC_PORT=${PCAP_HC_PORT:-12345}" >> ${ENV_FILE}
 # free style BPF filter aka complex filter, if defined: no simple filters will be applied
 echo "PCAP_FILTER=${PCAP_FILTER:-DISABLED}" >> ${ENV_FILE}
 # simple filter; comma separated list of NETWORK LAYER (L3) protocols to capture traffic to/from
-echo "PCAP_HOSTS=${PCAP_L3_PROTOS:-ALL}" >> ${ENV_FILE}
+echo "PCAP_L3_PROTOS=${PCAP_L3_PROTOS:-ALL}" >> ${ENV_FILE}
 # simple filter; comma separated list of TRANSPORT LAYER (L4) protocols to capture traffic to/from
-echo "PCAP_HOSTS=${PCAP_L4_PROTOS:-ALL}" >> ${ENV_FILE}
+echo "PCAP_L4_PROTOS=${PCAP_L4_PROTOS:-ALL}" >> ${ENV_FILE}
 # simple filter; comma separated list of IPv4 (addresses and networks/CIDR) to capture traffic to/from
-echo "PCAP_HOSTS=${PCAP_IPV4:-ALL}" >> ${ENV_FILE}
+echo "PCAP_IPV4=${PCAP_IPV4:-ALL}" >> ${ENV_FILE}
 # simple filter; comma separated list of IPv6 (addresses and networks/CIDR) to capture traffic to/from
-echo "PCAP_HOSTS=${PCAP_IPV6:-ALL}" >> ${ENV_FILE}
+echo "PCAP_IPV6=${PCAP_IPV6:-ALL}" >> ${ENV_FILE}
 # simple filter; comma separated list of FQDNs (hosts) to capture traffic to/from
 echo "PCAP_HOSTS=${PCAP_HOSTS:-ALL}" >> ${ENV_FILE}
 # simple filter; comma separated list of transport layer addresses (ports) to capture traffic to/from
