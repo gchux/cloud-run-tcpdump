@@ -53,7 +53,6 @@ var (
 	duration   = flag.Int("timeout", 0, "perform packet capture during this mount of seconds")
 	interval   = flag.Int("interval", 60, "seconds after which tcpdump rotates PCAP files")
 	snaplen    = flag.Int("snaplen", 0, "bytes to be captured from each packet")
-	filter     = flag.String("filter", "", "BPF filter to be used for capturing packets")
 	extension  = flag.String("extension", "pcap", "extension to be used for tcpdump PCAP files")
 	directory  = flag.String("directory", "", "directory where PCAP files will be stored")
 	tcp_dump   = flag.Bool("tcpdump", true, "enable JSON PCAP using tcpdump")
@@ -64,8 +63,13 @@ var (
 	gcp_gae    = flag.Bool("gae", false, "enable GAE Flex environment configuration")
 	pcap_iface = flag.String("iface", "", "prefix to scan for network interfaces to capture from")
 	hc_port    = flag.Uint("hc_port", 12345, "TCP port for health checking")
+	filter     = flag.String("filter", "", "BPF filter to be used for capturing packets")
+	l3_proto   = flag.String("l3_proto", "", "FQDNs to be translated into IPs to apply as packet filter")
+	l4_proto   = flag.String("l4_proto", "", "FQDNs to be translated into IPs to apply as packet filter")
 	hosts      = flag.String("hosts", "", "FQDNs to be translated into IPs to apply as packet filter")
 	ports      = flag.String("ports", "", "TCP/UDP ports to be used in any side of the 5-tuple for a packet to be captured")
+	ipv4       = flag.String("ipv4", "", "IPv4s or CIDR to be applied to the packet filter")
+	ipv6       = flag.String("ipv6", "", "IPv6s or CIDR to be applied to the packet filter")
 	tcp_flags  = flag.String("tcp_flags", "", "TCP flags to be set for a segment to be captured")
 )
 
@@ -105,6 +109,7 @@ var (
 	moduleEnvVar      string = os.Getenv("PROC_NAME")
 	gaeEnvVar         string = os.Getenv("GCP_GAE")
 	hcPortEnvVar      string = os.Getenv("PCAP_HC_PORT")
+	defaultPcapFilter string = "(tcp or udp) and (ip or ip6)"
 )
 
 var wg sync.WaitGroup
@@ -469,15 +474,16 @@ func appendFilter(
 	case <-ctx.Done():
 		return filters
 	default:
-		if *rawFilter == "" || strings.EqualFold(*rawFilter, "ALL") {
+		if *rawFilter == "" ||
+			strings.EqualFold(*rawFilter, "ALL") ||
+			strings.EqualFold(*rawFilter, "ANY") {
 			return filters
 		}
 	}
 
 	filter := factory(rawFilter)
 	filters = append(filters, filter)
-	jlog(INFO, &emptyTcpdumpJob,
-		stringFormatter.Format("using filter: {0}", filter.String()))
+	jlog(INFO, &emptyTcpdumpJob, stringFormatter.Format("using filter: {0}", filter.String()))
 
 	return filters
 }
@@ -500,14 +506,25 @@ func main() {
 	}()
 
 	filters := []pcap.PcapFilterProvider{}
-	filters = appendFilter(ctx, filters, hosts, pcapFilter.NewDNSFilterProvider)
-	filters = appendFilter(ctx, filters, ports, pcapFilter.NewPortsFilterProvider)
-	filters = appendFilter(ctx, filters, tcp_flags, pcapFilter.NewTCPFlagsFilterProvider)
+	if *filter == "" { // if filter is empty, build it using 'Simple PCAP filters'
+		filters = appendFilter(ctx, filters, l3_proto, pcapFilter.NewL3ProtoFilterProvider)
+		filters = appendFilter(ctx, filters, l4_proto, pcapFilter.NewL4ProtoFilterProvider)
+		filters = appendFilter(ctx, filters, ports, pcapFilter.NewPortsFilterProvider)
+		filters = appendFilter(ctx, filters, tcp_flags, pcapFilter.NewTCPFlagsFilterProvider)
+
+		ipFilter := pcapFilter.NewIPFilterProvider(ipv4, ipv6, hosts)
+		jlog(INFO, &emptyTcpdumpJob, stringFormatter.Format("using filter: {0}", ipFilter.String()))
+		filters = append(filters, ipFilter)
+
+		if len(filters) == 0 { // if no filters are available, use a default 'catch-all' filter
+			*filter = string(defaultPcapFilter)
+		}
+	}
 
 	tasks := createTasks(ctx, pcap_iface, timezone, directory, extension, filter, filters, snaplen, interval, tcp_dump, json_dump, json_log, ordered, conntrack, gcp_gae)
 
 	if len(tasks) == 0 {
-		jlog(ERROR, &emptyTcpdumpJob, "no PCAP tasks available")
+		jlog(FATAL, &emptyTcpdumpJob, "no PCAP tasks available")
 		os.Exit(1)
 	}
 

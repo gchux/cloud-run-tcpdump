@@ -3,6 +3,7 @@ package filter
 import (
 	"context"
 	"net"
+	"net/netip"
 	"strings"
 
 	mapset "github.com/deckarep/golang-set/v2"
@@ -26,29 +27,44 @@ func (p *DNSFilterProvider) hostToIPs(ctx context.Context, host *string) []strin
 	if err != nil {
 		return []string{}
 	}
-
 	return addrs
 }
 
-func (p *DNSFilterProvider) Get(ctx context.Context) (*string, bool) {
-	if *p.Raw == "" {
-		return nil, false
+func (p *DNSFilterProvider) hostsToIPs(ctx context.Context) mapset.Set[string] {
+	if *p.Raw == "" ||
+		strings.EqualFold(*p.Raw, "ALL") ||
+		strings.EqualFold(*p.Raw, "ANY") {
+		return nil
 	}
 
 	hosts := strings.Split(*p.Raw, ",")
 	if len(hosts) == 0 || (len(hosts) == 1 && hosts[0] == "") {
-		return nil, false
+		return nil
 	}
 
 	ipSet := mapset.NewThreadUnsafeSet[string]()
 	for _, host := range hosts {
-		IPs := p.hostToIPs(ctx, &host)
-		ipSet.Append(IPs...)
+		if host == "" ||
+			strings.EqualFold(host, "ALL") ||
+			strings.EqualFold(host, "ANY") {
+			continue
+		}
+		for _, IP := range p.hostToIPs(ctx, &host) {
+			if addr, err := netip.ParseAddr(IP); err == nil {
+				ipSet.Add(addr.String())
+			}
+		}
 	}
 
-	filter := stringFormatter.Format("host {0}",
-		strings.Join(ipSet.ToSlice(), " or host "))
-	return &filter, true
+	return ipSet
+}
+
+func (p *DNSFilterProvider) Get(ctx context.Context) (*string, bool) {
+	if ipSet := p.hostsToIPs(ctx); ipSet != nil && !ipSet.IsEmpty() {
+		filter := stringFormatter.Format("host {0}", strings.Join(ipSet.ToSlice(), " or host "))
+		return &filter, true
+	}
+	return nil, false
 }
 
 func (p *DNSFilterProvider) String() string {
@@ -67,11 +83,14 @@ func (p *DNSFilterProvider) Apply(
 }
 
 func newDNSFilterProvider(filter *pcap.PcapFilter) pcap.PcapFilterProvider {
-	provider := &DNSFilterProvider{
+	return &DNSFilterProvider{
 		PcapFilter: filter,
 		resolver: &net.Resolver{
 			PreferGo: true,
 		},
 	}
-	return provider
+}
+
+func newDNSFilterProviderFromRawFilter(rawFilter *string) pcap.PcapFilterProvider {
+	return newDNSFilterProvider(&pcap.PcapFilter{Raw: rawFilter})
 }

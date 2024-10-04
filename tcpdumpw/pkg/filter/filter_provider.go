@@ -23,6 +23,11 @@ func applyFilter(
 		return srcFilter
 	}
 
+	if srcFilter == nil || *srcFilter == "" {
+		*filter = stringFormatter.Format("({0})", *filter)
+		return filter
+	}
+
 	switch mode {
 	case pcap.PCAP_FILTER_MODE_AND:
 		*filter = stringFormatter.Format("{0} and ({1})", *srcFilter, *filter)
@@ -46,8 +51,20 @@ func newPcapFilterProvider(
 	return factory(pcapFilter)
 }
 
+func NewIPFilterProvider(ipv4RawFilter, ipv6RawFilter, dnsRawFilter *string) pcap.PcapFilterProvider {
+	return newIPFilterProvider(ipv4RawFilter, ipv6RawFilter, dnsRawFilter)
+}
+
 func NewDNSFilterProvider(rawFilter *string) pcap.PcapFilterProvider {
 	return newPcapFilterProvider(rawFilter, newDNSFilterProvider)
+}
+
+func NewL3ProtoFilterProvider(rawFilter *string) pcap.PcapFilterProvider {
+	return newPcapFilterProvider(rawFilter, newL3ProtoFilterProvider)
+}
+
+func NewL4ProtoFilterProvider(rawFilter *string) pcap.PcapFilterProvider {
+	return newPcapFilterProvider(rawFilter, newL4ProtoFilterProvider)
 }
 
 func NewPortsFilterProvider(rawFilter *string) pcap.PcapFilterProvider {

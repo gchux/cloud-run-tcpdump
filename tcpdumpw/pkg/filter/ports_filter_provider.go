@@ -2,6 +2,7 @@ package filter
 
 import (
 	"context"
+	"strconv"
 	"strings"
 
 	mapset "github.com/deckarep/golang-set/v2"
@@ -20,14 +21,28 @@ func (p *PortsFilterProvider) Get(ctx context.Context) (*string, bool) {
 		return nil, false
 	}
 
-	flags := strings.Split(strings.ToLower(*p.Raw), ",")
-	if len(flags) == 0 || (len(flags) == 1 && flags[0] == "") {
+	ports := strings.Split(strings.ToLower(*p.Raw), ",")
+	if len(ports) == 0 || (len(ports) == 1 && ports[0] == "") {
 		return nil, false
 	}
 
-	flagsSet := mapset.NewThreadUnsafeSet(flags...)
+	portSet := mapset.NewThreadUnsafeSet(ports...)
+	portSet.Each(func(portStr string) bool {
+		if portStr == "" || strings.EqualFold(portStr, "ALL") || strings.EqualFold(portStr, "ANY") {
+			portSet.Remove(portStr)
+		} else if port, err := strconv.ParseUint(portStr, 10, 16); err != nil || port > 0xFFFF {
+			// a PORT must be a number not greater than 65535
+			portSet.Remove(portStr)
+		}
+		return false
+	})
+
+	if portSet.IsEmpty() {
+		return nil, false
+	}
+
 	filter := stringFormatter.Format("port {0}",
-		strings.Join(flagsSet.ToSlice(), " or port "))
+		strings.Join(portSet.ToSlice(), " or port "))
 
 	return &filter, true
 }
