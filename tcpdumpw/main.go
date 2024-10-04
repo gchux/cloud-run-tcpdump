@@ -515,7 +515,7 @@ func main() {
 
 		ipFilterProvider := pcapFilter.NewIPFilterProvider(ipv4, ipv6, hosts)
 		if ipFilter, ok := ipFilterProvider.Get(ctx); ok {
-			jlog(INFO, &emptyTcpdumpJob, stringFormatter.Format("using filter: {0}", ipFilter))
+			jlog(INFO, &emptyTcpdumpJob, stringFormatter.Format("using filter: {0}", *ipFilter))
 			filters = append(filters, ipFilterProvider)
 		}
 
