@@ -50,7 +50,8 @@ func (p *L4ProtoFilterProvider) Get(ctx context.Context) (*string, bool) {
 	}
 
 	if l4Protos.IsEmpty() {
-		return nil, false
+		filter := string(l4_PROTO_DEFAULT_FILTER)
+		return &filter, true
 	}
 
 	filter := stringFormatter.Format("{0}", strings.Join(l4Protos.ToSlice(), " or "))
