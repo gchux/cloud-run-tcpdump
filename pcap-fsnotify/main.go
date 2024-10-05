@@ -35,6 +35,7 @@ import (
 
 	"github.com/alphadose/haxmap"
 	"github.com/fsnotify/fsnotify"
+	"github.com/gofrs/flock"
 	"go.uber.org/zap"
 	"go.uber.org/zap/zapcore"
 )
@@ -59,12 +60,14 @@ const (
 	PCAP_QUEUED pcapEvent = "PCAP_QUEUED"
 	PCAP_OSWMEM pcapEvent = "PCAP_OSWMEM"
 	PCAP_SIGNAL pcapEvent = "PCAP_SIGNAL"
+	PCAP_FSLOCK pcapEvent = "PCAP_FSLOCK"
 )
 
 const (
 	cgroupMemoryUtilization       = "/sys/fs/cgroup/memory/memory.usage_in_bytes"
 	dockerCgroupMemoryUtilization = "/sys/fs/cgroup/memory.current"
 	procSysVmDropCaches           = "/proc/sys/vm/drop_caches"
+	pcapLockFile                  = "/var/lock/pcap.lock"
 )
 
 var (
@@ -141,7 +144,7 @@ func movePcapToGcs(srcPcap *string, dstDir *string, compress, delete bool) (*str
 	// logFsEvent(zapcore.InfoLevel, fmt.Sprintf("OPENED: %s", *srcPcap), PCAP_EXPORT, *srcPcap, tgtPcap, 0)
 
 	// Create destination PCAP file ( export to the GCS Bucket )
-	outputPcap, err = os.OpenFile(tgtPcap, os.O_RDWR|os.O_CREATE|os.O_EXCL, 0666)
+	outputPcap, err = os.OpenFile(tgtPcap, os.O_RDWR|os.O_CREATE|os.O_EXCL, 0o666)
 	if err != nil {
 		logFsEvent(zapcore.ErrorLevel, fmt.Sprintf("CREATE[%s]: %s", tgtPcap, err), PCAP_EXPORT, *srcPcap, tgtPcap, 0)
 		return &tgtPcap, &pcapBytes, fmt.Errorf("failed to create destination pcap: %s", tgtPcap)
@@ -478,6 +481,7 @@ func main() {
 		signal := <-sigChan
 
 		signalTS := time.Now()
+		deadline := 3 * time.Second
 
 		sugar.Infow(fmt.Sprintf("signaled: %v", signal),
 			"sidecar", sidecar, "module", module, "tags", tags,
@@ -490,13 +494,32 @@ func main() {
 				"signal": signal,
 			})
 
-		time.AfterFunc(3*time.Second, func() {
+		timer := time.AfterFunc(deadline-time.Since(signalTS), func() {
 			if isActive.CompareAndSwap(true, false) {
 				// cancel then context after 3s regardless of `tcpdumpw` termination signal:
 				//   - this is effectively the `max_wait_time` for `tcpdumpw` termination signal.
 				cancel()
 			}
 		})
+
+		pcapMutex := flock.New(pcapLockFile)
+		data := map[string]interface{}{
+			"event": PCAP_FSLOCK,
+		}
+		lockCtx, lockCancel := context.WithTimeout(context.Background(), deadline-time.Since(signalTS))
+		defer lockCancel()
+		// `tcpdumpq` will unlock the PCAP lock file when all PCAP engines have stopped
+		if locked, lockErr := pcapMutex.TryLockContext(lockCtx, 10*time.Millisecond); !locked || lockErr != nil {
+			if lockErr != nil {
+				data["error"] = lockErr.Error()
+			}
+			sugar.Errorw("failed to acquire PCAP lock", "sidecar", sidecar, "module", module, "tags", tags, "data", data)
+		} else if isActive.CompareAndSwap(true, false) {
+			timer.Stop()
+			cancel()
+			sugar.Infow(fmt.Sprintf("acquired PCAP lock | latency: %v", time.Since(signalTS)),
+				"sidecar", sidecar, "module", module, "tags", tags, "data", data)
+		}
 	}(watcher, ticker)
 
 	if err == nil {

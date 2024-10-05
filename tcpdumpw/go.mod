@@ -9,6 +9,7 @@ require (
 	github.com/deckarep/golang-set/v2 v2.6.0
 	github.com/gchux/pcap-cli v1.0.0-rc119
 	github.com/go-co-op/gocron/v2 v2.5.0
+	github.com/gofrs/flock v0.12.1
 	github.com/google/uuid v1.6.0
 	github.com/wissance/stringFormatter v1.2.0
 )
@@ -42,7 +43,7 @@ require (
 	golang.org/x/exp v0.0.0-20240416160154-fe59bbe5cc7f // indirect
 	golang.org/x/net v0.6.0 // indirect
 	golang.org/x/sync v0.7.0 // indirect
-	golang.org/x/sys v0.16.0 // indirect
+	golang.org/x/sys v0.22.0 // indirect
 	golang.org/x/term v0.16.0 // indirect
 	golang.org/x/text v0.14.0 // indirect
 	google.golang.org/protobuf v1.34.2 // indirect
