@@ -506,7 +506,7 @@ func main() {
 		data := map[string]interface{}{
 			"event": PCAP_FSLOCK,
 		}
-		lockCtx, lockCancel := context.WithTimeout(context.Background(), deadline-time.Since(signalTS))
+		lockCtx, lockCancel := context.WithTimeout(ctx, deadline-time.Since(signalTS))
 		defer lockCancel()
 		// `tcpdumpq` will unlock the PCAP lock file when all PCAP engines have stopped
 		if locked, lockErr := pcapMutex.TryLockContext(lockCtx, 10*time.Millisecond); !locked || lockErr != nil {
