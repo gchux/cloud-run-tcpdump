@@ -76,7 +76,7 @@ echo "PCAP_DIR=${PCAP_DIR}" >> ${ENV_FILE}
 
 echo "PCAP_GCS_BUCKET=${PCAP_GCS_BUCKET}" >> ${ENV_FILE}
 echo "GCS_BUCKET=${PCAP_GCS_BUCKET}" >> ${ENV_FILE}
-echo "PCAP_FILTER=${PCAP_FILTER}" >> ${ENV_FILE}
+echo "PCAP_IFACE=${PCAP_IFACE:-eth}" >> ${ENV_FILE}
 echo "PCAP_SECS=${PCAP_SECS}" >> ${ENV_FILE}
 echo "PCAP_SNAPLEN=${PCAP_SNAPLEN}" >> ${ENV_FILE}
 echo "PCAP_USE_CRON=${PCAP_USE_CRON:-false}" >> ${ENV_FILE}
@@ -90,8 +90,26 @@ echo "PCAP_TCPDUMP=${PCAP_TCPDUMP:-true}" >> ${ENV_FILE}
 echo "PCAP_JSONDUMP=${PCAP_JSONDUMP}" >> ${ENV_FILE}
 echo "PCAP_JSONDUMP_LOG=${PCAP_JSONDUMP_LOG}" >> ${ENV_FILE}
 
-echo "PCAP_IFACE=${PCAP_IFACE:-eth}" >> ${ENV_FILE}
+# healtch check TCP port
 echo "PCAP_HC_PORT=${PCAP_HC_PORT:-12345}" >> ${ENV_FILE}
+
+
+# free style BPF filter aka complex filter, if defined: no simple filters will be applied
+echo "PCAP_FILTER=${PCAP_FILTER:-DISABLED}" >> ${ENV_FILE}
+# simple filter; comma separated list of NETWORK LAYER (L3) protocols to capture traffic to/from
+echo "PCAP_L3_PROTOS=${PCAP_L3_PROTOS:-ipv4,ipv6}" >> ${ENV_FILE}
+# simple filter; comma separated list of TRANSPORT LAYER (L4) protocols to capture traffic to/from
+echo "PCAP_L4_PROTOS=${PCAP_L4_PROTOS:-tcp,udp}" >> ${ENV_FILE}
+# simple filter; comma separated list of IPv4 (addresses and networks/CIDR) to capture traffic to/from
+echo "PCAP_IPV4=${PCAP_IPV4:-ALL}" >> ${ENV_FILE}
+# simple filter; comma separated list of IPv6 (addresses and networks/CIDR) to capture traffic to/from
+echo "PCAP_IPV6=${PCAP_IPV6:-ALL}" >> ${ENV_FILE}
+# simple filter; comma separated list of FQDNs (hosts) to capture traffic to/from
+echo "PCAP_HOSTS=${PCAP_HOSTS:-ALL}" >> ${ENV_FILE}
+# simple filter; comma separated list of transport layer addresses (ports) to capture traffic to/from
+echo "PCAP_PORTS=${PCAP_PORTS:-ALL}" >> ${ENV_FILE}
+# simple filter; comma separated list of lowercase TCP flags that a segment must contain to be captured
+echo "PCAP_TCP_FLAGS=${PCAP_TCP_FLAGS:-ALL}" >> ${ENV_FILE}
 
 # Create both paths to store PCAP files
 mkdir -p ${PCAP_MNT}

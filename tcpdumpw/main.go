@@ -26,6 +26,7 @@ import (
 	"os/signal"
 	"regexp"
 	"strconv"
+	"strings"
 	"sync"
 	"sync/atomic"
 	"syscall"
@@ -38,6 +39,9 @@ import (
 	"github.com/gchux/pcap-cli/pkg/pcap"
 	"github.com/go-co-op/gocron/v2"
 	"github.com/google/uuid"
+	"github.com/wissance/stringFormatter"
+
+	pcapFilter "github.com/gchux/cloud-run-tcpdump/tcpdumpw/pkg/filter"
 )
 
 func UNUSED(x ...interface{}) {}
@@ -49,7 +53,6 @@ var (
 	duration   = flag.Int("timeout", 0, "perform packet capture during this mount of seconds")
 	interval   = flag.Int("interval", 60, "seconds after which tcpdump rotates PCAP files")
 	snaplen    = flag.Int("snaplen", 0, "bytes to be captured from each packet")
-	filter     = flag.String("filter", "", "BPF filter to be used for capturing packets")
 	extension  = flag.String("extension", "pcap", "extension to be used for tcpdump PCAP files")
 	directory  = flag.String("directory", "", "directory where PCAP files will be stored")
 	tcp_dump   = flag.Bool("tcpdump", true, "enable JSON PCAP using tcpdump")
@@ -60,6 +63,14 @@ var (
 	gcp_gae    = flag.Bool("gae", false, "enable GAE Flex environment configuration")
 	pcap_iface = flag.String("iface", "", "prefix to scan for network interfaces to capture from")
 	hc_port    = flag.Uint("hc_port", 12345, "TCP port for health checking")
+	filter     = flag.String("filter", "", "BPF filter to be used for capturing packets")
+	l3_protos  = flag.String("l3_protos", "ipv4,ipv6", "FQDNs to be translated into IPs to apply as packet filter")
+	l4_protos  = flag.String("l4_protos", "tcp,udp", "FQDNs to be translated into IPs to apply as packet filter")
+	hosts      = flag.String("hosts", "", "FQDNs to be translated into IPs to apply as packet filter")
+	ports      = flag.String("ports", "", "TCP/UDP ports to be used in any side of the 5-tuple for a packet to be captured")
+	ipv4       = flag.String("ipv4", "", "IPv4s or CIDR to be applied to the packet filter")
+	ipv6       = flag.String("ipv6", "", "IPv6s or CIDR to be applied to the packet filter")
+	tcp_flags  = flag.String("tcp_flags", "", "TCP flags to be set for a segment to be captured")
 )
 
 type (
@@ -98,6 +109,7 @@ var (
 	moduleEnvVar      string = os.Getenv("PROC_NAME")
 	gaeEnvVar         string = os.Getenv("GCP_GAE")
 	hcPortEnvVar      string = os.Getenv("PCAP_HC_PORT")
+	defaultPcapFilter string = "(tcp or udp) and (ip or ip6)"
 )
 
 var wg sync.WaitGroup
@@ -111,7 +123,7 @@ var emptyTcpdumpJob = tcpdumpJob{Jid: uuid.Nil.String()}
 var (
 	errTcpdumpDisabled  = errors.New("GCS PCAP export disabled")
 	errJsondumpDisabled = errors.New("GCS JSON export disabled")
-	errJsonLogDisabled  = errors.New("STDOUT JSON log disabled")
+	errJSONLogDisabled  = errors.New("STDOUT JSON log disabled")
 	errGaeDisabled      = errors.New("GAE JSON log disabled")
 )
 
@@ -264,6 +276,7 @@ func tcpdump(timeout time.Duration) error {
 
 func newPcapConfig(
 	iface, format, output, extension, filter string,
+	filters []pcap.PcapFilterProvider,
 	snaplen, interval int,
 	ordered, conntrack bool,
 ) *pcap.PcapConfig {
@@ -279,12 +292,14 @@ func newPcapConfig(
 		Interval:  interval,
 		Ordered:   ordered,
 		ConnTrack: conntrack,
+		Filters:   filters,
 	}
 }
 
 func createTasks(
 	ctx context.Context,
 	ifacePrefix, timezone, directory, extension, filter *string,
+	filters []pcap.PcapFilterProvider,
 	snaplen, interval *int,
 	tcpdump, jsondump, jsonlog, ordered, conntrack, gcpGAE *bool,
 ) []*pcapTask {
@@ -311,8 +326,8 @@ func createTasks(
 
 		output := fmt.Sprintf(runFileOutput, *directory, netIface.Index, netIface.Name)
 
-		tcpdumpCfg := newPcapConfig(iface, "pcap", output, *extension, *filter, *snaplen, *interval, *ordered, *conntrack)
-		jsondumpCfg := newPcapConfig(iface, "json", output, "json", *filter, *snaplen, *interval, *ordered, *conntrack)
+		tcpdumpCfg := newPcapConfig(iface, "pcap", output, *extension, *filter, filters, *snaplen, *interval, *ordered, *conntrack)
+		jsondumpCfg := newPcapConfig(iface, "json", output, "json", *filter, filters, *snaplen, *interval, *ordered, *conntrack)
 
 		// premature optimization is the root of all evil
 		var engineErr, writerErr error = nil, nil
@@ -352,7 +367,7 @@ func createTasks(
 			// writing JSON PCAP file is only enabled if `jsondump` is enabled
 			jsondumpWriter, writerErr = pcap.NewPcapWriter(ctx, &ifaceAndIndex, &output, &jsondumpCfg.Extension, timezone, *interval)
 		} else {
-			jsondumpWriter, writerErr = nil, errJsonLogDisabled
+			jsondumpWriter, writerErr = nil, errJSONLogDisabled
 		}
 		if writerErr == nil {
 			pcapWriters = append(pcapWriters, jsondumpWriter)
@@ -365,7 +380,7 @@ func createTasks(
 		if *jsonlog {
 			jsonlogWriter, writerErr = pcap.NewStdoutPcapWriter(ctx, &ifaceAndIndex)
 		} else {
-			jsonlogWriter, writerErr = nil, errJsonLogDisabled
+			jsonlogWriter, writerErr = nil, errJSONLogDisabled
 		}
 		if writerErr == nil {
 			pcapWriters = append(pcapWriters, jsonlogWriter)
@@ -449,6 +464,30 @@ func waitDone(job *tcpdumpJob, exitSignal *string) {
 	}
 }
 
+func appendFilter(
+	ctx context.Context,
+	filters []pcap.PcapFilterProvider,
+	rawFilter *string,
+	factory pcapFilter.PcapFilterProviderFactory,
+) []pcap.PcapFilterProvider {
+	select {
+	case <-ctx.Done():
+		return filters
+	default:
+		if *rawFilter == "" ||
+			strings.EqualFold(*rawFilter, "ALL") ||
+			strings.EqualFold(*rawFilter, "ANY") {
+			return filters
+		}
+	}
+
+	filter := factory(rawFilter)
+	filters = append(filters, filter)
+	jlog(INFO, &emptyTcpdumpJob, stringFormatter.Format("using filter: {0}", filter.String()))
+
+	return filters
+}
+
 func main() {
 	flag.Parse()
 
@@ -462,14 +501,33 @@ func main() {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer func() {
 		if r := recover(); r != nil {
-			fmt.Fprintln(os.Stderr, "panic", r)
+			jlog(FATAL, &emptyTcpdumpJob, stringFormatter.Format("panic: {0}", r))
 		}
 	}()
 
-	tasks := createTasks(ctx, pcap_iface, timezone, directory, extension, filter, snaplen, interval, tcp_dump, json_dump, json_log, ordered, conntrack, gcp_gae)
+	filters := []pcap.PcapFilterProvider{}
+	if *filter == "" || strings.EqualFold(*filter, "DISABLED") {
+		// if complex filter is empty, build it using 'Simple PCAP filters'
+		filters = appendFilter(ctx, filters, l3_protos, pcapFilter.NewL3ProtoFilterProvider)
+		filters = appendFilter(ctx, filters, l4_protos, pcapFilter.NewL4ProtoFilterProvider)
+		filters = appendFilter(ctx, filters, ports, pcapFilter.NewPortsFilterProvider)
+		filters = appendFilter(ctx, filters, tcp_flags, pcapFilter.NewTCPFlagsFilterProvider)
+
+		ipFilterProvider := pcapFilter.NewIPFilterProvider(ipv4, ipv6, hosts)
+		if ipFilter, ok := ipFilterProvider.Get(ctx); ok {
+			jlog(INFO, &emptyTcpdumpJob, stringFormatter.Format("using filter: {0}", *ipFilter))
+			filters = append(filters, ipFilterProvider)
+		}
+
+		if len(filters) == 0 { // if no simple filters are available, use a default 'catch-all' filter
+			*filter = string(defaultPcapFilter)
+		}
+	}
+
+	tasks := createTasks(ctx, pcap_iface, timezone, directory, extension, filter, filters, snaplen, interval, tcp_dump, json_dump, json_log, ordered, conntrack, gcp_gae)
 
 	if len(tasks) == 0 {
-		jlog(ERROR, &emptyTcpdumpJob, "no PCAP tasks available")
+		jlog(FATAL, &emptyTcpdumpJob, "no PCAP tasks available")
 		os.Exit(1)
 	}
 

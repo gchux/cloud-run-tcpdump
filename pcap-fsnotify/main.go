@@ -229,6 +229,9 @@ func exportPcapFile(wg *sync.WaitGroup, pcapDotExt *regexp.Regexp, srcFile *stri
 	}
 
 	rMatch := pcapDotExt.FindStringSubmatch(*srcFile)
+	if len(rMatch) == 0 || len(rMatch) < 3 {
+		return false
+	}
 
 	iface := fmt.Sprintf("%s:%s", rMatch[1], rMatch[2])
 	ext := rMatch[3]
