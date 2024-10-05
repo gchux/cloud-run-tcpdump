@@ -465,7 +465,9 @@ func waitDone(job *tcpdumpJob, pcapMutex *flock.Flock, exitSignal *string) {
 	}
 
 	if unlockErr := pcapMutex.Unlock(); unlockErr != nil {
-		jlog(ERROR, job, fmt.Sprintf("failed to release PCAP lock: %v", unlockErr))
+		jlog(ERROR, job, fmt.Sprintf("failed to release PCAP lock file: %v", unlockErr))
+	} else {
+		jlog(INFO, job, fmt.Sprintf("released PCAP lock file: %s", pcapLockFile))
 	}
 }
 
