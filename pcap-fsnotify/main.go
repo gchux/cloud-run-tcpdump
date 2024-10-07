@@ -45,10 +45,9 @@ type (
 	pcapEvent string
 
 	fsnEvent struct {
-		Event  pcapEvent `json:"event,omitempty"`
-		Source string    `json:"source,omitempty"`
-		Target string    `json:"target,omitempty"`
-		Bytes  int64     `json:"bytes,omitempty"`
+		Source string `json:"source,omitempty"`
+		Target string `json:"target,omitempty"`
+		Bytes  int64  `json:"bytes,omitempty"`
 	}
 )
 
@@ -122,7 +121,7 @@ func logEvent(level zapcore.Level, message string, event pcapEvent, data map[str
 	if err != nil {
 		_data["error"] = err.Error()
 	}
-	if data != nil && len(data) > 0 {
+	if len(data) > 0 {
 		maps.Copy(_data, data)
 	}
 	sugar.Logw(level, message, "sidecar", sidecar, "module", module, "tags", tags, "data", _data,
@@ -132,7 +131,6 @@ func logEvent(level zapcore.Level, message string, event pcapEvent, data map[str
 func logFsEvent(level zapcore.Level, message string, event pcapEvent, src, tgt string, by int64, err error) {
 	data := map[string]interface{}{
 		"fs": fsnEvent{
-			Event:  event,
 			Source: src,
 			Target: tgt,
 			Bytes:  by,
