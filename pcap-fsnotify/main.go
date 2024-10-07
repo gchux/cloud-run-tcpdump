@@ -491,22 +491,21 @@ func main() {
 		})
 
 		pcapMutex := flock.New(pcapLockFile)
-		data := map[string]interface{}{
-			"event": PCAP_FSLOCK,
-		}
 		lockCtx, lockCancel := context.WithTimeout(ctx, deadline-time.Since(signalTS))
 		defer lockCancel()
 		// `tcpdumpq` will unlock the PCAP lock file when all PCAP engines have stopped
 		if locked, lockErr := pcapMutex.TryLockContext(lockCtx, 10*time.Millisecond); !locked || lockErr != nil {
-			if lockErr != nil {
-				data["error"] = lockErr.Error()
-			}
-			sugar.Errorw("failed to acquire PCAP lock", "sidecar", sidecar, "module", module, "tags", tags, "data", data)
+			logEvent(zapcore.ErrorLevel, "failed to acquire PCAP lock", PCAP_FSLOCK, nil, lockErr)
 		} else if isActive.CompareAndSwap(true, false) {
 			timer.Stop()
 			cancel()
-			sugar.Infow(fmt.Sprintf("acquired PCAP lock | latency: %v", time.Since(signalTS)),
-				"sidecar", sidecar, "module", module, "tags", tags, "data", data)
+			logEvent(zapcore.InfoLevel,
+				"acquired PCAP lock",
+				PCAP_FSLOCK,
+				map[string]interface{}{
+					"latency": time.Since(signalTS).String(),
+				},
+				nil)
 		}
 	}(watcher, ticker)
 
