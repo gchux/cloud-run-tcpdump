@@ -38,6 +38,7 @@ import (
 	"github.com/alphadose/haxmap"
 	"github.com/gchux/pcap-cli/pkg/pcap"
 	"github.com/go-co-op/gocron/v2"
+	"github.com/gofrs/flock"
 	"github.com/google/uuid"
 	"github.com/wissance/stringFormatter"
 
@@ -109,7 +110,6 @@ var (
 	moduleEnvVar      string = os.Getenv("PROC_NAME")
 	gaeEnvVar         string = os.Getenv("GCP_GAE")
 	hcPortEnvVar      string = os.Getenv("PCAP_HC_PORT")
-	defaultPcapFilter string = "(tcp or udp) and (ip or ip6)"
 )
 
 var wg sync.WaitGroup
@@ -134,9 +134,11 @@ const (
 )
 
 const (
-	fileNamePattern = "%d_%s__%%Y%%m%%dT%%H%%M%%S"
-	runFileOutput   = `%s/part__` + fileNamePattern
-	gaeFileOutput   = `/var/log/app_engine/app/app_pcap__` + fileNamePattern
+	fileNamePattern   = "%d_%s__%%Y%%m%%dT%%H%%M%%S"
+	runFileOutput     = `%s/part__` + fileNamePattern
+	gaeFileOutput     = `/var/log/app_engine/app/app_pcap__` + fileNamePattern
+	pcapLockFile      = "/var/lock/pcap.lock"
+	defaultPcapFilter = "(tcp or udp) and (ip or ip6)"
 )
 
 var gaeJSONInterval = 0 // disable time based file rotation
@@ -416,7 +418,7 @@ func startTCPListener(ctx context.Context, port *uint, job *tcpdumpJob, stopChan
 
 	if tcpListenerErr != nil {
 		jlog(ERROR, &emptyTcpdumpJob, fmt.Sprintf("failed to start the TCP listener: %v", tcpListenerErr))
-		os.Exit(4)
+		os.Exit(5)
 	}
 
 	for {
@@ -441,7 +443,7 @@ func startTCPListener(ctx context.Context, port *uint, job *tcpdumpJob, stopChan
 	}
 }
 
-func waitDone(job *tcpdumpJob, exitSignal *string) {
+func waitDone(job *tcpdumpJob, pcapMutex *flock.Flock, exitSignal *string) {
 	// wait for all PCAP tasks to be gracefully stopped
 	wg.Wait()
 
@@ -452,7 +454,6 @@ func waitDone(job *tcpdumpJob, exitSignal *string) {
 		}
 	}
 
-	// ToDo: use https://github.com/gofrs/flock
 	// `TCPDUMPW_EXITED` file creation signals `pcap_fsn` to start its own termination process
 	terminationSignal, err := os.OpenFile(*exitSignal, os.O_RDWR|os.O_CREATE|os.O_EXCL, 0o666)
 
@@ -461,6 +462,12 @@ func waitDone(job *tcpdumpJob, exitSignal *string) {
 		terminationSignal.Close()
 	} else {
 		jlog(ERROR, job, fmt.Sprintf("'tcpdumpw' termination signal creation failed: %s | %s", *exitSignal, err.Error()))
+	}
+
+	if unlockErr := pcapMutex.Unlock(); unlockErr != nil {
+		jlog(ERROR, job, fmt.Sprintf("failed to release PCAP lock file: %v", unlockErr))
+	} else {
+		jlog(INFO, job, fmt.Sprintf("released PCAP lock file: %s", pcapLockFile))
 	}
 }
 
@@ -524,11 +531,18 @@ func main() {
 		}
 	}
 
-	tasks := createTasks(ctx, pcap_iface, timezone, directory, extension, filter, filters, snaplen, interval, tcp_dump, json_dump, json_log, ordered, conntrack, gcp_gae)
+	tasks := createTasks(ctx, pcap_iface, timezone, directory, extension,
+		filter, filters, snaplen, interval, tcp_dump, json_dump, json_log, ordered, conntrack, gcp_gae)
 
 	if len(tasks) == 0 {
 		jlog(FATAL, &emptyTcpdumpJob, "no PCAP tasks available")
 		os.Exit(1)
+	}
+
+	pcapMutex := flock.New(pcapLockFile)
+	if locked, lockErr := pcapMutex.TryLock(); !locked || lockErr != nil {
+		jlog(FATAL, &emptyTcpdumpJob, fmt.Sprintf("failed to acquire PCAP lock | locked: %t | %v", locked, lockErr))
+		os.Exit(2)
 	}
 
 	jobs = haxmap.New[string, *tcpdumpJob]()
@@ -544,6 +558,8 @@ func main() {
 
 	// create empty job: used if CRON is not enabled
 	job := &tcpdumpJob{Jid: uuid.Nil.String(), tasks: tasks}
+
+	jlog(INFO, job, fmt.Sprintf("acquired PCAP lock: %s", pcapLockFile))
 
 	signals := make(chan os.Signal, 1)
 	signal.Notify(signals, syscall.SIGTERM, syscall.SIGINT)
@@ -567,7 +583,7 @@ func main() {
 		// start the TCP listener for health checks
 		go startTCPListener(ctx, hc_port, job, tcpStopChannel)
 		start(ctx, &timeout, job)
-		waitDone(job, &exitSignal)
+		waitDone(job, pcapMutex, &exitSignal)
 		<-tcpStopChannel
 		close(tcpStopChannel)
 		return
@@ -599,7 +615,7 @@ func main() {
 	)
 	if err != nil {
 		jlog(ERROR, &emptyTcpdumpJob, fmt.Sprintf("failed to create scheduler: %v", err))
-		os.Exit(2)
+		os.Exit(3)
 	}
 
 	// Use the provided `cron` expression ro schedule the packet capturing job
@@ -616,7 +632,7 @@ func main() {
 	if err != nil {
 		jlog(ERROR, &emptyTcpdumpJob, fmt.Sprintf("failed to create scheduled job: %v", err))
 		s.Shutdown()
-		os.Exit(3)
+		os.Exit(4)
 	}
 
 	jid.Store(j.ID())
@@ -650,7 +666,7 @@ func main() {
 	s.Shutdown()
 	jlog(INFO, job, "scheduler terminated")
 
-	waitDone(job, &exitSignal)
+	waitDone(job, pcapMutex, &exitSignal)
 	<-tcpStopChannel
 	close(tcpStopChannel)
 }
