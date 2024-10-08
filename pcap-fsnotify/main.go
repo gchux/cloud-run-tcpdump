@@ -489,21 +489,19 @@ func main() {
 		})
 
 		pcapMutex := flock.New(pcapLockFile)
+		lockData := map[string]interface{}{"lock": pcapLockFile}
+		logEvent(zapcore.InfoLevel, "waiting for PCAP lock file", PCAP_FSLOCK, lockData, nil)
 		lockCtx, lockCancel := context.WithTimeout(ctx, deadline-time.Since(signalTS))
 		defer lockCancel()
 		// `tcpdumpq` will unlock the PCAP lock file when all PCAP engines have stopped
 		if locked, lockErr := pcapMutex.TryLockContext(lockCtx, 10*time.Millisecond); !locked || lockErr != nil {
-			logEvent(zapcore.ErrorLevel, "failed to acquire PCAP lock", PCAP_FSLOCK, nil, lockErr)
+			lockData["latency"] = time.Since(signalTS).String()
+			logEvent(zapcore.ErrorLevel, "failed to acquire PCAP lock file", PCAP_FSLOCK, lockData, lockErr)
 		} else if isActive.CompareAndSwap(true, false) {
 			timer.Stop()
+			lockData["latency"] = time.Since(signalTS).String()
 			cancel()
-			logEvent(zapcore.InfoLevel,
-				"acquired PCAP lock",
-				PCAP_FSLOCK,
-				map[string]interface{}{
-					"latency": time.Since(signalTS).String(),
-				},
-				nil)
+			logEvent(zapcore.InfoLevel, "acquired PCAP lock file", PCAP_FSLOCK, lockData, nil)
 		}
 	}(watcher, ticker)
 
@@ -545,7 +543,7 @@ func main() {
 	flushLatency := time.Since(flushStart)
 
 	logEvent(zapcore.InfoLevel,
-		fmt.Sprintf("flushed %d PCAP files: %v", pendingPcapFiles, flushLatency),
+		fmt.Sprintf("flushed %d PCAP files", pendingPcapFiles),
 		PCAP_FSNEND,
 		map[string]interface{}{
 			"files":   pendingPcapFiles,
