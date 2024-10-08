@@ -94,12 +94,13 @@ type (
 	jLogLevel string
 
 	jLogEntry struct {
-		Severity jLogLevel  `json:"severity"`
-		Message  string     `json:"message"`
-		Sidecar  string     `json:"sidecar"`
-		Module   string     `json:"module"`
-		Job      tcpdumpJob `json:"job,omitempty"`
-		Tags     []string   `json:"tags,omitempty"`
+		Severity  jLogLevel        `json:"severity"`
+		Message   string           `json:"message"`
+		Sidecar   string           `json:"sidecar"`
+		Module    string           `json:"module"`
+		Job       tcpdumpJob       `json:"job,omitempty"`
+		Tags      []string         `json:"tags,omitempty"`
+		Timestamp map[string]int64 `json:"timestamp,omitempty"`
 	}
 )
 
@@ -144,7 +145,10 @@ const (
 var gaeJSONInterval = 0 // disable time based file rotation
 
 func jlog(severity jLogLevel, job *tcpdumpJob, message string) {
+	now := time.Now()
+
 	j := *job
+	// this is safe as only 1 concurrent job execution is ever allowed.
 	j.Xid = xid.Load().(uuid.UUID).String()
 
 	entry := &jLogEntry{
@@ -154,11 +158,15 @@ func jlog(severity jLogLevel, job *tcpdumpJob, message string) {
 		Module:   moduleEnvVar,
 		Job:      j,
 		Tags:     j.Tags,
+		Timestamp: map[string]int64{
+			"seconds": now.Unix(),
+			"nanos":   int64(now.Nanosecond()),
+		},
 	}
 
 	jEntry, err := json.Marshal(entry)
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "[ERROR] - %s\n", err)
+		fmt.Fprintf(os.Stderr, "%+v\n", entry)
 		return
 	}
 	io.WriteString(os.Stdout, string(jEntry)+"\n")
