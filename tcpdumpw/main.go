@@ -506,13 +506,6 @@ func appendFilter(
 func main() {
 	flag.Parse()
 
-	jid.Store(uuid.Nil)
-	xid.Store(uuid.Nil)
-
-	jlog(INFO, &emptyTcpdumpJob,
-		fmt.Sprintf("args[iface:%s|use_cron:%t|cron_exp:%s|timezone:%s|timeout:%d|extension:%s|directory:%s|snaplen:%d|filter:%s|interval:%d|tcpdump:%t|jsondump:%t|jsonlog:%t|ordered:%t|hc_port:%d|gcp_gae:%t]",
-			*pcap_iface, *use_cron, *cron_exp, *timezone, *duration, *extension, *directory, *snaplen, *filter, *interval, *tcp_dump, *json_dump, *json_log, *ordered, *hc_port, *gcp_gae))
-
 	ctx, cancel := context.WithCancel(context.Background())
 	defer func() {
 		if r := recover(); r != nil {
@@ -520,8 +513,15 @@ func main() {
 		}
 	}()
 
+	jid.Store(uuid.Nil)
+	xid.Store(uuid.Nil)
+
+	if strings.EqualFold(*filter, "DISABLED") {
+		*filter = ""
+	}
+
 	filters := []pcap.PcapFilterProvider{}
-	if *filter == "" || strings.EqualFold(*filter, "DISABLED") {
+	if *filter == "" {
 		// if complex filter is empty, build it using 'Simple PCAP filters'
 		filters = appendFilter(ctx, filters, l3_protos, pcapFilter.NewL3ProtoFilterProvider)
 		filters = appendFilter(ctx, filters, l4_protos, pcapFilter.NewL4ProtoFilterProvider)

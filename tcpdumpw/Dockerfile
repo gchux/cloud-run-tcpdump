@@ -36,7 +36,7 @@ ENV GOARCH=amd64
 RUN gofumpt -l -w ./main.go
 RUN go mod tidy -compat=1.22.4
 RUN go mod download
-RUN go build -a -v -o /app/bin/${BIN_NAME} main.go
+RUN go build -a -v -tags json -o /app/bin/${BIN_NAME} main.go
 
 FROM scratch AS releaser
 COPY --link --from=builder /app/bin/${BIN_NAME} /
