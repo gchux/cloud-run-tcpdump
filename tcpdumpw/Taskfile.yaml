@@ -58,9 +58,10 @@ tasks:
       - task: update-gitmodules
       - task: go-fmt
       - task: go-gen
-      - go mod tidy
+      - go mod tidy -compat=1.22.4
       - >-
         go build
+        -tags json
         -o bin/$TCPDUMPW_BIN_NAME
         {{if .VERBOSE}}-v -a{{end}}
         main.go
