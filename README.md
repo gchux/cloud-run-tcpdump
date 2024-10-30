@@ -393,3 +393,9 @@ This approach assumes that Artifact Registry is available in `PROJECT_ID`.
 > which means that traffic is HTTP/2 over TCP and so if you capture all TCP and UDP traffic you'll also be capturing all what's being exported into Cloud Logging which will cause a
 >
 > write aplification effect that will starve memory as all your traffic will eventually be stored in sidecar's memory.
+
+------
+
+This is not an officially supported Google product. This project is not
+eligible for the [Google Open Source Software Vulnerability Rewards
+Program](https://bughunters.google.com/open-source-security).
