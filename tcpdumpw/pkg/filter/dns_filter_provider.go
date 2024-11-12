@@ -18,28 +18,28 @@ type (
 	}
 )
 
-func (p *DNSFilterProvider) hostToIPs(ctx context.Context, host *string) []string {
+func (p *DNSFilterProvider) hostToIPs(ctx context.Context, host *string) ([]string, bool) {
 	if *host == "" {
-		return []string{}
+		return nil, false
 	}
 
 	addrs, err := p.resolver.LookupHost(ctx, *host)
 	if err != nil {
-		return []string{}
+		return nil, false
 	}
-	return addrs
+	return addrs, true
 }
 
-func (p *DNSFilterProvider) hostsToIPs(ctx context.Context) mapset.Set[string] {
+func (p *DNSFilterProvider) hostsToIPs(ctx context.Context) (mapset.Set[string], bool) {
 	if *p.Raw == "" ||
 		strings.EqualFold(*p.Raw, "ALL") ||
 		strings.EqualFold(*p.Raw, "ANY") {
-		return nil
+		return nil, false
 	}
 
 	hosts := strings.Split(*p.Raw, ",")
 	if len(hosts) == 0 || (len(hosts) == 1 && hosts[0] == "") {
-		return nil
+		return nil, false
 	}
 
 	ipSet := mapset.NewThreadUnsafeSet[string]()
@@ -49,18 +49,21 @@ func (p *DNSFilterProvider) hostsToIPs(ctx context.Context) mapset.Set[string] {
 			strings.EqualFold(host, "ANY") {
 			continue
 		}
-		for _, IP := range p.hostToIPs(ctx, &host) {
-			if addr, err := netip.ParseAddr(IP); err == nil {
-				ipSet.Add(addr.String())
+
+		if IPs, ok := p.hostToIPs(ctx, &host); ok {
+			for _, IP := range IPs {
+				if addr, err := netip.ParseAddr(IP); err == nil {
+					ipSet.Add(addr.String())
+				}
 			}
 		}
 	}
 
-	return ipSet
+	return ipSet, true
 }
 
 func (p *DNSFilterProvider) Get(ctx context.Context) (*string, bool) {
-	if ipSet := p.hostsToIPs(ctx); ipSet != nil && !ipSet.IsEmpty() {
+	if ipSet, ok := p.hostsToIPs(ctx); ok && ipSet != nil && !ipSet.IsEmpty() {
 		filter := stringFormatter.Format("host {0}", strings.Join(ipSet.ToSlice(), " or host "))
 		return &filter, true
 	}

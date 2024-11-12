@@ -2,6 +2,7 @@
 
 # set -eux -o pipefail
 
+# the 1st argument of this script expects the name of the environment to build for
 source $(pwd)/env/${1}.env
 
 # the 2nd argument of this script expects the full container image URI minus the tag
@@ -30,18 +31,27 @@ else
   mkdir -p ${BIN_DIR}
 fi
 
+function docker_tags {
+  local d=' --tag=' f=${1-}
+  printf "%s" "$f" "${@/#/$d}"
+}
+
 function docker_build_base {
   DOCKER_FILE="${BASE_IMAGE_DIR}/${1}.Dockerfile"
+
   echo "building: ${DOCKER_FILE}"
-  docker buildx build --no-cache --file=${DOCKER_FILE} \
+  
+  docker buildx build --no-cache \
+    --file="${DOCKER_FILE}" \
     --build-arg="LIBPCAP_VERSION=${LIBPCAP_VERSION}" \
     --build-arg="TCPDUMP_VERSION=${TCPDUMP_VERSION}" \
     --build-arg="LIBPCAP_URL=${LIBPCAP_URL}" \
     --build-arg="TCPDUMP_URL=${TCPDUMP_URL}" \
     --label="LIBPCAP_VERSION=${LIBPCAP_VERSION}" \
     --label="TCPDUMP_VERSION=${TCPDUMP_VERSION}" \
-    -t "pcap-${1}:${DOCKER_TAG_SUFFIX}" \
+    --tag="pcap-${1}:${DOCKER_TAG_SUFFIX}" \
     ${BASE_IMAGE_DIR}
+  
   if [ $? -ne 0 ]; then
     echo "failed to build: ${DOCKER_FILE}"
     kill -s TERM $MAIN_PID
@@ -50,15 +60,31 @@ function docker_build_base {
 
 function docker_build {
   echo "building: ${1}"
+
   docker buildx build \
-    --platform=linux/amd64 --file=${1}/Dockerfile \
+    --platform=linux/amd64 \
+    --file="${1}/Dockerfile" \
     --build-arg="LIBPCAP_VERSION=${LIBPCAP_VERSION}" \
     --build-arg="TCPDUMP_VERSION=${TCPDUMP_VERSION}" \
-    --no-cache --output ${BIN_DIR} --target releaser ${1}
+    --no-cache --output ${BIN_DIR} --target releaser "${1}"
+
   if [ $? -ne 0 ]; then
     echo "failed to build: ${1}"
     kill -s TERM $MAIN_PID
   fi
+}
+
+function docker_release {
+  docker buildx build \
+    --no-cache --push \
+    --platform=linux/amd64 \
+    --file="$(pwd)/Dockerfile" \
+    --build-arg="LIBPCAP_VERSION=${LIBPCAP_VERSION}" \
+    --build-arg="TCPDUMP_VERSION=${TCPDUMP_VERSION}" \
+    --label="LIBPCAP_VERSION=${LIBPCAP_VERSION}" \
+    --label="TCPDUMP_VERSION=${TCPDUMP_VERSION}" \
+    --label="PCAPCLI_VERSION=${PCAPCLI_VERSION}" \
+    "--tag=$@" $(pwd)
 }
 
 echo "Building Cloud Run PCAP sidecar: LIBPCAP-v${LIBPCAP_VERSION} + TCPDUMP-v${TCPDUMP_VERSION} + PCAP_CLI-${PCAPCLI_VERSION}"
@@ -71,41 +97,20 @@ docker_build ${SUPERVISORD_DIR}
 docker_build ${PCAPFSN_DIR}
 docker_build ${TCPDUMPW_DIR}
 
+# Fully Qualified Docker Image Name
+FQDIN="${2}:${DOCKER_TAG_SUFFIX}_pcapcli-${PCAPCLI_VERSION}"
+
 # build `tcpdump` sidecar image
-if [[ -z "$3" ]]; then
+if [[ -z "${3}" ]]; then
   # flow for manual builds: if no 3rd arg (v#.#.#) is provided
-  echo "Creating image with ${2}:${IMAGE_TAG} and ${2}-${DOCKER_TAG_SUFFIX}_pcapcli-${PCAPCLI_VERSION} image tags"
-  docker buildx build \
-    --platform=linux/amd64 --file=$(pwd)/Dockerfile \
-    --build-arg="LIBPCAP_VERSION=${LIBPCAP_VERSION}" \
-    --build-arg="TCPDUMP_VERSION=${TCPDUMP_VERSION}" \
-    --label="LIBPCAP_VERSION=${LIBPCAP_VERSION}" \
-    --label="TCPDUMP_VERSION=${TCPDUMP_VERSION}" \
-    --label="PCAPCLI_VERSION=${PCAPCLI_VERSION}" \
-    --no-cache -t "${2}:${IMAGE_TAG}" -t "${2}-${DOCKER_TAG_SUFFIX}_pcapcli-${PCAPCLI_VERSION}" \
-    --push $(pwd)
-elif [[ "$3" == *"RC"* ]]; then
+  echo "Creating images: '${2}:${IMAGE_TAG}' and '${FQDIN}'"
+  docker_release `docker_tags "${2}:${IMAGE_TAG}" "${FQDIN}"`
+elif [[ "${3}" == *"-RC" ]]; then
   # flow for release candidates: 3rd arg / tag contains "RC", so do not push to newest/latest
-  echo "building image for release candidate (RC) with ${2}:${3}-${GEN} and ${2}-${DOCKER_TAG_SUFFIX}_pcapcli-${PCAPCLI_VERSION} image tags"
-  docker buildx build \
-    --platform=linux/amd64 --file=$(pwd)/Dockerfile \
-    --build-arg="LIBPCAP_VERSION=${LIBPCAP_VERSION}" \
-    --build-arg="TCPDUMP_VERSION=${TCPDUMP_VERSION}" \
-    --label="LIBPCAP_VERSION=${LIBPCAP_VERSION}" \
-    --label="TCPDUMP_VERSION=${TCPDUMP_VERSION}" \
-    --label="PCAPCLI_VERSION=${PCAPCLI_VERSION}" \
-    --no-cache -t "${2}:${3}-${GEN}" -t "${2}-${DOCKER_TAG_SUFFIX}_pcapcli-${PCAPCLI_VERSION}" \
-    --push $(pwd)
+  echo "Creating release candidate (RC) images: '${2}:${3}-${GEN}' and '${FQDIN}'"
+  docker_release `docker_tags "${2}:${3}-${GEN}" "${FQDIN}"`
 else
   # flow for non RC version: if a 3rd arg (v#.#.#) without RC is provided then apply both tags
-  echo "Creating image with both ${2}:${IMAGE_TAG}, ${2}:${3}-${GEN}, ${2}-${DOCKER_TAG_SUFFIX}_pcapcli-${PCAPCLI_VERSION} image tags"
-  docker buildx build \
-    --platform=linux/amd64 --file=$(pwd)/Dockerfile \
-    --build-arg="LIBPCAP_VERSION=${LIBPCAP_VERSION}" \
-    --build-arg="TCPDUMP_VERSION=${TCPDUMP_VERSION}" \
-    --label="LIBPCAP_VERSION=${LIBPCAP_VERSION}" \
-    --label="TCPDUMP_VERSION=${TCPDUMP_VERSION}" \
-    --label="PCAPCLI_VERSION=${PCAPCLI_VERSION}" \
-    --no-cache -t "${2}:${3}-${GEN}" -t "${2}:${IMAGE_TAG}" -t "${2}-${DOCKER_TAG_SUFFIX}_pcapcli-${PCAPCLI_VERSION}" \
-    --push $(pwd)
+  echo "Releasing images: '${2}:${IMAGE_TAG}', '${2}:${3}-${GEN}' and '${FQDIN}'"
+  docker_release `docker_tags "${2}:${3}-${GEN}" "${2}:${IMAGE_TAG}" "${FQDIN}"`
 fi

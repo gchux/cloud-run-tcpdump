@@ -7,6 +7,8 @@ while : ; do
     sleep 1
 done
 
+EPHEMERAL_PORT_RANGE=`cat /proc/sys/net/ipv4/ip_local_port_range | tr '\t' ',' | tr -d '\n'`
+
 set -x
 
 # `exec` allows `/bin/tcpdumpw` to receive signals directly
@@ -27,11 +29,12 @@ exec env /bin/tcpdumpw \
     -conntrack=${PCAP_CONNTRACK:-false} \
     -snaplen=${PCAP_SNAPLEN:-0} \
     -hc_port="${PCAP_HC_PORT:-12345}" \
-    -filter="${PCAP_FILTER:=DISABLED}" \
+    -filter="${PCAP_FILTER:-DISABLED}" \
     -l3_protos="${PCAP_L3_PROTOS:-ipv4,ipv6}" \
     -l4_protos="${PCAP_L4_PROTOS:-tcp,udp}" \
-    -ipv4="${PCAP_IPV4:-ALL}" \
-    -ipv6="${PCAP_IPV6:-ALL}" \
+    -ipv4="${PCAP_IPV4:-DISABLED}" \
+    -ipv6="${PCAP_IPV6:-DISABLED}" \
     -hosts="${PCAP_HOSTS:-ALL}" \
     -ports="${PCAP_PORTS:-ALL}" \
-    -tcp_flags="${PCAP_TCP_FLAGS:-ANY}"
+    -tcp_flags="${PCAP_TCP_FLAGS:-ANY}" \
+    -ephemerals="${EPHEMERAL_PORT_RANGE:-32768,60999}"

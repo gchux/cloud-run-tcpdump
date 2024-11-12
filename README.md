@@ -147,9 +147,9 @@ The `tcpdump` sidecar accepts the following environment variables:
 
 - `PCAP_L4_PROTOS`: (STRING, _optional_) comma separated list of transport layer protocols; default value is `tcp,udp`.
 
-- `PCAP_IPV4`: (STRING, _optional_) comma separated list of IPv4 addresses or IPv4 networks using CIDR notation `ALL`. Example: `127.0.0.1,127.0.0.1/32`.
+- `PCAP_IPV4`: (STRING, _optional_) comma separated list of IPv4 addresses or IPv4 networks using CIDR notation; default value is `DISABLED`. Example: `127.0.0.1,127.0.0.1/32`.
 
-- `PCAP_IPV6`: (STRING, _optional_) comma separated list of IPv6 addresses or IPv6 networks using CIDR notation `ALL`. Example: `::1,::1/128`.
+- `PCAP_IPV6`: (STRING, _optional_) comma separated list of IPv6 addresses or IPv6 networks using CIDR notation; default value is `DISABLED`. Example: `::1,::1/128`.
 
 - `PCAP_HOSTS`: (STRING, _optional_) comma separated list of FQDNs (hosts) to capture traffic to/from; default value is `ALL`. Example: `metadata.google.internal,pubsub.googleapis.com`.
 

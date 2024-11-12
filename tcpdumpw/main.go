@@ -25,6 +25,7 @@ import (
 	"os"
 	"os/signal"
 	"regexp"
+	"runtime/debug"
 	"strconv"
 	"strings"
 	"sync"
@@ -69,9 +70,10 @@ var (
 	l4_protos  = flag.String("l4_protos", "tcp,udp", "FQDNs to be translated into IPs to apply as packet filter")
 	hosts      = flag.String("hosts", "", "FQDNs to be translated into IPs to apply as packet filter")
 	ports      = flag.String("ports", "", "TCP/UDP ports to be used in any side of the 5-tuple for a packet to be captured")
-	ipv4       = flag.String("ipv4", "", "IPv4s or CIDR to be applied to the packet filter")
-	ipv6       = flag.String("ipv6", "", "IPv6s or CIDR to be applied to the packet filter")
+	ipv4       = flag.String("ipv4", "NONE", "IPv4s or CIDR to be applied to the packet filter")
+	ipv6       = flag.String("ipv6", "NONE", "IPv6s or CIDR to be applied to the packet filter")
 	tcp_flags  = flag.String("tcp_flags", "", "TCP flags to be set for a segment to be captured")
+	ephemerals = flag.String("ephemerals", "32768,60999", "range of ephemeral ports")
 )
 
 type (
@@ -510,6 +512,7 @@ func main() {
 	defer func() {
 		if r := recover(); r != nil {
 			jlog(FATAL, &emptyTcpdumpJob, stringFormatter.Format("panic: {0}", r))
+			fmt.Fprintln(os.Stderr, string(debug.Stack()))
 		}
 	}()
 
@@ -529,13 +532,14 @@ func main() {
 		filters = appendFilter(ctx, filters, tcp_flags, pcapFilter.NewTCPFlagsFilterProvider)
 
 		ipFilterProvider := pcapFilter.NewIPFilterProvider(ipv4, ipv6, hosts)
-		if ipFilter, ok := ipFilterProvider.Get(ctx); ok {
-			jlog(INFO, &emptyTcpdumpJob, stringFormatter.Format("using filter: {0}", *ipFilter))
+		if _, ok := ipFilterProvider.Get(ctx); ok {
+			jlog(INFO, &emptyTcpdumpJob, stringFormatter.
+				Format("using filter: {0}", ipFilterProvider.String()))
 			filters = append(filters, ipFilterProvider)
 		}
 
 		if len(filters) == 0 { // if no simple filters are available, use a default 'catch-all' filter
-			*filter = string(defaultPcapFilter)
+			*filter = string(pcap.PcapDefaultFilter)
 		}
 	}
 

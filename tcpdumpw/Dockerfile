@@ -29,6 +29,7 @@ COPY ./go.mod go.mod
 COPY ./go.sum go.sum
 COPY ./main.go main.go
 COPY ./pkg pkg
+COPY ./pcap-cli pcap-cli
 
 ENV GOOS=linux
 ENV GOARCH=amd64

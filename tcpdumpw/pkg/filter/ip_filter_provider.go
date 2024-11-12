@@ -33,7 +33,7 @@ func (p *IPFilterProvider) getIPsAndNETs(_ context.Context) ([]string, []string)
 	NETs := []string{}
 
 	for _, IPorNET := range allIPsOrNETs {
-		if IPorNET == "" {
+		if IPorNET == "" || strings.EqualFold(IPorNET, "DISABLED") {
 			continue
 		} else if strings.EqualFold(IPorNET, "ALL") || strings.EqualFold(IPorNET, "ANY") {
 			NETs = append(NETs, "0.0.0.0/0")
@@ -61,7 +61,7 @@ func (p *IPFilterProvider) Get(ctx context.Context) (*string, bool) {
 
 	IPs, NETs := p.getIPsAndNETs(ctx)
 	ipSet := mapset.NewThreadUnsafeSet(IPs...)
-	if IPs := p.dnsFilterProvider.hostsToIPs(ctx); !IPs.IsEmpty() {
+	if IPs, ok := p.dnsFilterProvider.hostsToIPs(ctx); ok && !IPs.IsEmpty() {
 		ipSet.Append(IPs.ToSlice()...)
 	}
 

@@ -18,8 +18,12 @@ func applyFilter(
 	provider pcap.PcapFilterProvider,
 	mode pcap.PcapFilterMode,
 ) *string {
+	if provider == nil {
+		return srcFilter
+	}
+
 	filter, ok := provider.Get(ctx)
-	if !ok || *filter == "" {
+	if !ok || filter == nil || *filter == "" {
 		return srcFilter
 	}
 
@@ -34,6 +38,7 @@ func applyFilter(
 	case pcap.PCAP_FILTER_MODE_OR:
 		*filter = stringFormatter.Format("{0} or ({1})", *srcFilter, *filter)
 	}
+
 	return filter
 }
 
