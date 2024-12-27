@@ -2,6 +2,9 @@ bin/
 tmp/
 .task/
 
+Taskfile.local.yaml
+.env.local
+
 Dockerfile.profile
 docker_build_profile
 
