@@ -37,4 +37,4 @@ exec env /bin/tcpdumpw \
     -hosts="${PCAP_HOSTS:-ALL}" \
     -ports="${PCAP_PORTS:-ALL}" \
     -tcp_flags="${PCAP_TCP_FLAGS:-ANY}" \
-    -ephemerals="${EPHEMERAL_PORT_RANGE:-32768,60999}"
+    -ephemerals="${EPHEMERAL_PORT_RANGE:-32768,65535}"

@@ -73,7 +73,7 @@ var (
 	ipv4       = flag.String("ipv4", "", "IPv4s or CIDR to be applied to the packet filter")
 	ipv6       = flag.String("ipv6", "", "IPv6s or CIDR to be applied to the packet filter")
 	tcp_flags  = flag.String("tcp_flags", "", "TCP flags to be set for a segment to be captured")
-	ephemerals = flag.String("ephemerals", "32768,60999", "range of ephemeral ports")
+	ephemerals = flag.String("ephemerals", "32768,65535", "range of ephemeral ports")
 )
 
 type (
@@ -291,20 +291,22 @@ func newPcapConfig(
 	filters []pcap.PcapFilterProvider,
 	snaplen, interval int,
 	ordered, conntrack bool,
+	ephemerals *pcap.PcapEmphemeralPorts,
 ) *pcap.PcapConfig {
 	return &pcap.PcapConfig{
-		Promisc:   true,
-		Iface:     iface,
-		Snaplen:   snaplen,
-		TsType:    "",
-		Format:    format,
-		Output:    output,
-		Extension: extension,
-		Filter:    filter,
-		Interval:  interval,
-		Ordered:   ordered,
-		ConnTrack: conntrack,
-		Filters:   filters,
+		Promisc:    true,
+		Iface:      iface,
+		Snaplen:    snaplen,
+		TsType:     "",
+		Format:     format,
+		Output:     output,
+		Extension:  extension,
+		Filter:     filter,
+		Interval:   interval,
+		Ordered:    ordered,
+		ConnTrack:  conntrack,
+		Filters:    filters,
+		Ephemerals: ephemerals,
 	}
 }
 
@@ -314,6 +316,7 @@ func createTasks(
 	filters []pcap.PcapFilterProvider,
 	snaplen, interval *int,
 	tcpdump, jsondump, jsonlog, ordered, conntrack, gcpGAE *bool,
+	ephemerals *pcap.PcapEmphemeralPorts,
 ) []*pcapTask {
 	tasks := []*pcapTask{}
 
@@ -338,8 +341,8 @@ func createTasks(
 
 		output := fmt.Sprintf(runFileOutput, *directory, netIface.Index, netIface.Name)
 
-		tcpdumpCfg := newPcapConfig(iface, "pcap", output, *extension, *filter, filters, *snaplen, *interval, *ordered, *conntrack)
-		jsondumpCfg := newPcapConfig(iface, "json", output, "json", *filter, filters, *snaplen, *interval, *ordered, *conntrack)
+		tcpdumpCfg := newPcapConfig(iface, "pcap", output, *extension, *filter, filters, *snaplen, *interval, *ordered, *conntrack, ephemerals)
+		jsondumpCfg := newPcapConfig(iface, "json", output, "json", *filter, filters, *snaplen, *interval, *ordered, *conntrack, ephemerals)
 
 		// premature optimization is the root of all evil
 		var engineErr, writerErr error = nil, nil
@@ -543,8 +546,37 @@ func main() {
 		}
 	}
 
+	// default ephemeral ports range
+	ephemeralPortRange := &pcap.PcapEmphemeralPorts{
+		Min: pcap.PCAP_MIN_EPHEMERAL_PORT,
+		Max: pcap.PCAP_MAX_EPHEMERAL_PORT,
+	}
+	if *ephemerals != "" {
+		ephemeralPorts := strings.SplitN(*ephemerals, ",", 2)
+		if len(ephemeralPorts) == 2 {
+			for i, valueStr := range ephemeralPorts {
+				if value, err := strconv.ParseUint(valueStr, 10, 16); err == nil && value >= 0x0400 && value <= 0xFFFF {
+					// see: https://datatracker.ietf.org/doc/html/rfc6056#page-5
+					// a valid `ephemeral port` must be within RFC 6056 range: [1024/0x4000,65535/0xFFFF]
+					port := uint16(value)
+					switch i {
+					case 0:
+						if port < ephemeralPortRange.Max {
+							ephemeralPortRange.Min = uint16(value)
+						}
+					default:
+						if port > ephemeralPortRange.Min {
+							ephemeralPortRange.Max = uint16(value)
+						}
+					}
+				}
+			}
+		}
+	}
+
 	tasks := createTasks(ctx, pcap_iface, timezone, directory, extension,
-		filter, filters, snaplen, interval, tcp_dump, json_dump, json_log, ordered, conntrack, gcp_gae)
+		filter, filters, snaplen, interval, tcp_dump, json_dump, json_log,
+		ordered, conntrack, gcp_gae, ephemeralPortRange)
 
 	if len(tasks) == 0 {
 		jlog(FATAL, &emptyTcpdumpJob, "no PCAP tasks available")
