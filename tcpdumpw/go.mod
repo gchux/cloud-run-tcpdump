@@ -8,7 +8,7 @@ go 1.22.4
 require (
 	github.com/alphadose/haxmap v1.4.0
 	github.com/deckarep/golang-set/v2 v2.6.0
-	github.com/gchux/pcap-cli v1.0.0-rc128
+	github.com/gchux/pcap-cli v1.0.0-rc129
 	github.com/go-co-op/gocron/v2 v2.5.0
 	github.com/gofrs/flock v0.12.1
 	github.com/google/uuid v1.6.0

@@ -30,9 +30,11 @@ type (
 )
 
 const (
-	l4_PROTO_DEFAULT_FILTER string = "tcp or udp"
+	l4_PROTO_DEFAULT_FILTER string = "tcp or udp or icmp or icmp6"
 	l4_PROTO_TCP_FILTER     string = "tcp"
 	l4_PROTO_UDP_FILTER     string = "udp"
+	l4_PROTO_ICMPv4_FILTER  string = "icmp"
+	l4_PROTO_ICMPv6_FILTER  string = "icmp6"
 )
 
 func (p *L4ProtoFilterProvider) Get(ctx context.Context) (*string, bool) {
@@ -60,6 +62,10 @@ func (p *L4ProtoFilterProvider) Get(ctx context.Context) (*string, bool) {
 			l4Protos.Add(string(l4_PROTO_TCP_FILTER))
 		case "udp", "17", "0x11":
 			l4Protos.Add(string(l4_PROTO_UDP_FILTER))
+		case "icmp", "icmp4", "1", "0x01":
+			l4Protos.Add(string(l4_PROTO_ICMPv4_FILTER))
+		case "icmp6", "58", "0x3A":
+			l4Protos.Add(string(l4_PROTO_ICMPv6_FILTER))
 		}
 	}
 

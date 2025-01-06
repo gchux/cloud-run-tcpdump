@@ -141,7 +141,7 @@ const (
 	runFileOutput     = `%s/part__` + fileNamePattern
 	gaeFileOutput     = `/var/log/app_engine/app/app_pcap__` + fileNamePattern
 	pcapLockFile      = "/var/lock/pcap.lock"
-	defaultPcapFilter = "(tcp or udp) and (ip or ip6)"
+	defaultPcapFilter = "(tcp or udp or icmp or icmp6) and (ip or ip6)"
 )
 
 var gaeJSONInterval = 0 // disable time based file rotation
