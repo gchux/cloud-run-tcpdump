@@ -19,6 +19,8 @@ The sidecar approach enables decoupling from the main –_ingress_– container 
 ## Features
 
 - Structured Cloud Logging entries that provide easily digestible pcap info.
+  - `ICMPv4` and `ICMPv6` analysis:
+    - supported messages: `EchoRequest`, `EchoReply`, `TimeExceeded`, `DestinationUnreachable`, and `Redirect`.
   - `HTTP/1.1` or `HTTP/2` analysis:
     - Semented by networking layer and `HTTP/1.1` with raw message.
     - Report errors at `HTTP/1.1` message and `HTTP/2` frames analysis.
@@ -394,7 +396,7 @@ This approach assumes that Artifact Registry is available in `PROJECT_ID`.
 >
 > write aplification effect that will starve memory as all your traffic will eventually be stored in sidecar's memory.
 
-------
+---
 
 This is not an officially supported Google product. This project is not
 eligible for the [Google Open Source Software Vulnerability Rewards
