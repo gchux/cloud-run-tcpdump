@@ -33,9 +33,9 @@ type (
 )
 
 const (
-	defaultIPv4filter = "net 0.0.0.0/0"
-	defaultIPv6filter = "net ::/0"
-	defaultIPfilter   = defaultIPv4filter + " or " + defaultIPv6filter
+	defaultIPv4Net  = "0.0.0.0/0"
+	defaultIPv6Net  = "::/0"
+	defaultIPfilter = "net " + defaultIPv4Net + " or net " + defaultIPv6Net
 )
 
 func (p *IPFilterProvider) getIPsAndNETs(_ context.Context) ([]string, []string) {
@@ -54,8 +54,8 @@ func (p *IPFilterProvider) getIPsAndNETs(_ context.Context) ([]string, []string)
 		if IPorNET == "" || strings.EqualFold(IPorNET, "DISABLED") {
 			continue
 		} else if strings.EqualFold(IPorNET, "ALL") || strings.EqualFold(IPorNET, "ANY") {
-			NETs = append(NETs, defaultIPv4filter)
-			NETs = append(NETs, defaultIPv6filter)
+			NETs = append(NETs, defaultIPv4Net)
+			NETs = append(NETs, defaultIPv6Net)
 		} else if addr, err := netip.ParseAddr(IPorNET); err == nil {
 			if addr.Is4() || addr.Is6() {
 				IPs = append(IPs, addr.String())
