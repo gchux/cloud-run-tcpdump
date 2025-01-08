@@ -12,9 +12,10 @@ if [ "$PCAP_JSONDUMP" = true ] ; then
     PCAP_EXT="${PCAP_EXT},json"
 fi
 
-ls -la "${PCAP_DIR}"
-
 set -x
+
+ls -l "${PCAP_DIR}"
+ls -l /bin/pcap_fsn
 
 # `exec` allows `/bin/pcap_fsn` to receive signals directly
 exec env /bin/pcap_fsn \

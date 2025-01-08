@@ -13,6 +13,9 @@ EPHEMERAL_PORT_RANGE=`cat /proc/sys/net/ipv4/ip_local_port_range | tr '\t' ',' |
 
 set -x
 
+ls -l /bin/tcpdump
+ls -l /bin/tcpdumpw
+
 # `exec` allows `/bin/tcpdumpw` to receive signals directly
 exec env /bin/tcpdumpw \
     -gae=${PCAP_GAE} \
@@ -34,8 +37,8 @@ exec env /bin/tcpdumpw \
     -filter="${PCAP_FILTER:-DISABLED}" \
     -l3_protos="${PCAP_L3_PROTOS:-ipv4,ipv6}" \
     -l4_protos="${PCAP_L4_PROTOS:-tcp,udp}" \
-    -ipv4="${PCAP_IPV4:-DISABLED}" \
-    -ipv6="${PCAP_IPV6:-DISABLED}" \
+    -ipv4="${PCAP_IPV4:-ALL}" \
+    -ipv6="${PCAP_IPV6:-ALL}" \
     -hosts="${PCAP_HOSTS:-ALL}" \
     -ports="${PCAP_PORTS:-ALL}" \
     -tcp_flags="${PCAP_TCP_FLAGS:-ANY}" \
