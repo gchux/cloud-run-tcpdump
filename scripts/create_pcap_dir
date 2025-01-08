@@ -1,14 +1,16 @@
 #!/usr/bin/env bash
 
-set -x
+set +x
 
 while : ; do
-    gcsfuse_ready=$(mount | grep --color=never gcsfuse | grep --color=never ${PCAP_GCS_BUCKET} | wc -l | tr -d '\n')
+    gcsfuse_ready=$(mount -l | grep --color=never "${PCAP_MNT} type fuse" | wc -l | tr -d '\n')
     [[ "${gcsfuse_ready}" == '1' ]] && break
     echo "{\"severity\":\"WARNING\",\"message\":\"GCS Bucket ${PCAP_GCS_BUCKET} not mounted at ${PCAP_MNT}\",\"sidecar\":\"${APP_SIDECAR}\",\"module\":\"${PROC_NAME}\"}"
     sleep 1
 done
 
+mount | grep --color=never "${PCAP_MNT} type fuse"
+
 set -x
 
-exec env mkdir -p ${PCAP_DIR}
+mkdir -p "${PCAP_DIR}"

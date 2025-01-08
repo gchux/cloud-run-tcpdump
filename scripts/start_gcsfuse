@@ -12,6 +12,7 @@ trap 'sleep 8; kill -TERM $GCS_FUSE_PID' TERM INT
   --foreground \
   ${PCAP_GCS_BUCKET} ${PCAP_MNT} &
 export GCS_FUSE_PID=$!
+
 echo "[INFO] – GCS FUSE started w/PID: ${GCS_FUSE_PID}"
 wait ${GCS_FUSE_PID}
 trap - TERM INT

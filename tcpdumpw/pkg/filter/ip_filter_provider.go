@@ -34,7 +34,7 @@ type (
 
 const (
 	defaultIPv4filter = "net 0.0.0.0/0"
-	defaultIPv6filter = "net net ::/0"
+	defaultIPv6filter = "net ::/0"
 	defaultIPfilter   = defaultIPv4filter + " or " + defaultIPv6filter
 )
 
