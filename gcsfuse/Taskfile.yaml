@@ -12,21 +12,22 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-ARG LIBPCAP_VERSION='1.10.5'
-ARG TCPDUMP_VERSION='4.99.5'
+version: "3"
 
-FROM --platform=linux/amd64 pcap-sidecar:libpcap-v${LIBPCAP_VERSION}_tcpdump-v${TCPDUMP_VERSION}
+dotenv: [".env"]
 
-ARG PCAP_RT_ENV='cloud_run_gen2'
-
-LABEL org.opencontainers.image.description="Cloud Run PCAP sidecar"
-
-USER 0:0
-
-COPY ./bin /bin
-COPY ./scripts /scripts
-COPY ./tcpdump.conf /tcpdump.conf
-
-RUN sed -i -e "s/@PCAP_RT_ENV@/${PCAP_RT_ENV}/g" /scripts/init && cp -vf /scripts/init /init
-
-ENTRYPOINT ["/init"]
+tasks:
+  docker-build:
+    vars:
+      RUNTIME_ENVIRONMENT: '{{default "cloud_run_gen1" .ENV}}'
+    dotenv:
+      - "{{.USER_WORKING_DIR}}/../env/{{.RUNTIME_ENVIRONMENT}}.env"
+    cmds:
+      - >-
+        docker buildx build
+        --progress=plain
+        --platform=linux/amd64
+        --no-cache --file=Dockerfile
+        --build-arg="GCSFUSE_VERSION=$GCSFUSE_VERSION"
+        --output={{.USER_WORKING_DIR}}/bin
+        --target=releaser {{.USER_WORKING_DIR}}

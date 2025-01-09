@@ -37,7 +37,7 @@ tasks:
         --build-arg="BIN_NAME=$TCPDUMPW_BIN_NAME"
         --build-arg="LIBPCAP_VERSION=$LIBPCAP_VERSION"
         --build-arg="TCPDUMP_VERSION=$TCPDUMP_VERSION"
-        --output={{.USER_WORKING_DIR}}
+        --output={{.USER_WORKING_DIR}}/bin
         --target=releaser {{.USER_WORKING_DIR}}
     sources:
       - ./main.go

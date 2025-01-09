@@ -19,6 +19,7 @@ export BASE_IMAGE_DIR="$(pwd)/base-image"
 export SUPERVISORD_DIR="$(pwd)/supervisord"
 export PCAPFSN_DIR="$(pwd)/pcap-fsnotify"
 export TCPDUMPW_DIR="$(pwd)/tcpdumpw"
+export GCSFUSE_DIR="$(pwd)/gcsfuse"
 
 export PCAPCLI_VERSION="$(grep 'pcap-cli v' ${TCPDUMPW_DIR}/go.mod | grep -v 'replace' | awk '{print $2}' | sort | uniq | head -1 | tr -d '\n')"
 export DOCKER_TAG_SUFFIX="libpcap-v${LIBPCAP_VERSION}_tcpdump-v${TCPDUMP_VERSION}"
@@ -79,6 +80,7 @@ function docker_release {
     --no-cache --push \
     --platform=linux/amd64 \
     --file="$(pwd)/Dockerfile" \
+    --build-arg="PCAP_RT_ENV=${ENV}" \
     --build-arg="LIBPCAP_VERSION=${LIBPCAP_VERSION}" \
     --build-arg="TCPDUMP_VERSION=${TCPDUMP_VERSION}" \
     --label="LIBPCAP_VERSION=${LIBPCAP_VERSION}" \
@@ -96,6 +98,11 @@ docker_build_base golang
 docker_build ${SUPERVISORD_DIR}
 docker_build ${PCAPFSN_DIR}
 docker_build ${TCPDUMPW_DIR}
+
+# patch GCSFuse for Cloud Run gen1
+if [[ "$ENV" == "cloud_run_gen1" ]]; then
+  docker_build ${GCSFUSE_DIR}
+fi
 
 # Fully Qualified Docker Image Name
 FQDIN="${2}:${DOCKER_TAG_SUFFIX}_pcapcli-${PCAPCLI_VERSION}"
