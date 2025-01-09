@@ -29,7 +29,7 @@ COPY ./patch /patch
 
 RUN git clone --depth 1 --branch v${GCSFUSE_VERSION} \
   https://github.com/GoogleCloudPlatform/gcsfuse.git ${GCSFUSE_REPO} \
-  && patch ${GCSFUSE_REPO}/internal/fs/fs.go /patch/internal/fs/fs.go
+  && patch ${GCSFUSE_REPO}/internal/fs/fs.go /patch/v${GCSFUSE_VERSION}/internal/fs/fs.go
 
 WORKDIR ${GCSFUSE_REPO}/
 
