@@ -13,25 +13,31 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-FROM --platform=linux/amd64 golang:1.23.4-alpine AS builder
+ARG GOLANG_VERSION='1.23.4'
 
-RUN apk add git patch
+FROM golang:${GOLANG_VERSION}-alpine AS builder
 
-ARG GCSFUSE_VERSION="2.7.0"
-ARG GCSFUSE_REPO="/run/gcsfuse"
+ARG GIT_VERSION='2.47.1-r0'
+ARG PATCH_VERSION='2.7.6-r10'
 
+RUN apk add --no-cache --update git=${GIT_VERSION} patch=${PATCH_VERSION}
+
+ARG GCSFUSE_VERSION='2.7.0'
+ARG GCSFUSE_REPO='/run/gcsfuse'
 
 COPY ./patch /patch
+
 RUN git clone --depth 1 --branch v${GCSFUSE_VERSION} \
   https://github.com/GoogleCloudPlatform/gcsfuse.git ${GCSFUSE_REPO} \
   && patch ${GCSFUSE_REPO}/internal/fs/fs.go /patch/internal/fs/fs.go
 
 WORKDIR ${GCSFUSE_REPO}/
 
-RUN git diff internal/fs/fs.go
+RUN git config --global pager.diff false \
+  && git --no-pager diff ${GCSFUSE_REPO}/internal/fs/fs.go
 
-RUN go install ./tools/build_gcsfuse
-RUN build_gcsfuse . /tmp $(git log -1 --format=format:"%H")
+RUN go install ./tools/build_gcsfuse \
+  && build_gcsfuse . /tmp "$(git log -1 --format=format:'%H')"
 
 FROM scratch AS releaser
 

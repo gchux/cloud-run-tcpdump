@@ -21,6 +21,7 @@ tasks:
     vars:
       RUNTIME_ENVIRONMENT: '{{default "cloud_run_gen1" .ENV}}'
     dotenv:
+      - "{{.USER_WORKING_DIR}}/.env"
       - "{{.USER_WORKING_DIR}}/../env/{{.RUNTIME_ENVIRONMENT}}.env"
     cmds:
       - >-
@@ -28,6 +29,9 @@ tasks:
         --progress=plain
         --platform=linux/amd64
         --no-cache --file=Dockerfile
+        --build-arg="GOLANG_VERSION=$GOLANG_VERSION"
+        --build-arg="GIT_VERSION=$GIT_VERSION"
+        --build-arg="PATCH_VERSION=$PATCH_VERSION"
         --build-arg="GCSFUSE_VERSION=$GCSFUSE_VERSION"
         --output={{.USER_WORKING_DIR}}/bin
         --target=releaser {{.USER_WORKING_DIR}}
