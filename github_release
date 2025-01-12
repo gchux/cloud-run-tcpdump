@@ -1,0 +1,41 @@
+#!/usr/bin/env bash
+
+if [ "${1}" = "" ]
+then
+  echo "Usage: $0 <sidecer_release_version>"
+  exit
+fi
+
+export MAIN_PID=$$
+
+export PCAP_SIDECAR_VERSION="v${1}"
+export PCAP_SIDECAR_IMAGE_URI='us-central1-docker.pkg.dev/pcap-sidecar/pcap-sidecar/pcap-sidecar'
+export PCAP_SIDECAR_GITHUB_URI='ghcr.io/gchux/cloud-run-tcpdump'
+
+function release_pcap_sidecar {
+  local PCAP_SIDECAR_RELEASE_URI="${PCAP_SIDECAR_IMAGE_URI}:${1}"
+  local PCAP_SIDECAR_GITHUB_RELEASE_URI="${PCAP_SIDECAR_GITHUB_URI}:${1}"
+
+  echo "releasing: ${PCAP_SIDECAR_RELEASE_URI} => ${PCAP_SIDECAR_GITHUB_RELEASE_URI}"
+
+  docker pull "${PCAP_SIDECAR_RELEASE_URI}"
+  if [ $? -ne 0 ]; then
+    echo "failed to pull: ${PCAP_SIDECAR_RELEASE_URI}"
+    kill -s TERM $MAIN_PID
+  fi
+
+  docker tag ${PCAP_SIDECAR_RELEASE_URI} ${PCAP_SIDECAR_GITHUB_RELEASE_URI}
+
+  docker push ${PCAP_SIDECAR_GITHUB_RELEASE_URI}
+  if [ $? -ne 0 ]; then
+    echo "failed to push: ${PCAP_SIDECAR_GITHUB_RELEASE_URI}"
+    kill -s TERM $MAIN_PID
+  fi
+}
+
+
+PCAP_SIDECAR_FLAVORS=("${PCAP_SIDECAR_VERSION}-gen1" "latest" "${PCAP_SIDECAR_VERSION}-gen2" "newest")
+set -x
+for PCAP_SIDECAR_FLAVOR in ${PCAP_SIDECAR_FLAVORS[@]}; do
+  release_pcap_sidecar ${PCAP_SIDECAR_FLAVOR}
+done
