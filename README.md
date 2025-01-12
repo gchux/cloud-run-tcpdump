@@ -141,7 +141,9 @@ The `tcpdump` sidecar accepts the following environment variables:
 
 - `PCAP_IFACE`: (STRING, **required**) a prefix for the interface to perform packet capturing on; i/e: `eth`, `ens`...
 
-  > Notice that `PCAP_IFACE` is not the full interface name nor a regex or a pattern, but a prefix; so `eth0` becomes `eth`, and `ens4` becomes `ens`
+  > Notice that `PCAP_IFACE` is not the full interface name nor a regex or a pattern, but a prefix; so `eth0` becomes `eth`, and `ens4` becomes `ens`.
+
+  > For **Cloud Run gen1** the value of this environment variable will always be `any`.
 
 - `PCAP_GCS_BUCKET`: (STRING, **required**) the name of the Cloud Storage Bucket to be mounted and used to store **PCAP files**. Ensure that you provide the runtime service account the `roles/storage.admin` so that it may create objects and read bucket metadata.
 
@@ -159,7 +161,9 @@ The `tcpdump` sidecar accepts the following environment variables:
 
 - `PCAP_TCP_FLAGS`: (STRING, _optional_) comma separated list of lowercase TCP flags that a segment must contain for it to be captured; default value is `ANY`. Example: `syn,rst`.
 
-- `PCAP_SNAPSHOT_LENGTH`: (NUMBER, _optional_) bytes of data from each packet rather than the default of 262144 bytes; default value is `0`. See https://www.tcpdump.org/manpages/tcpdump.1.html#:~:text=%2D%2D-,snapshot%2Dlength,-%3Dsnaplen
+- `PCAP_SNAPSHOT_LENGTH`: (NUMBER, _optional_) bytes of data from each packet rather than the default of 262144 bytes; default value is `65536`. For more details see https://www.tcpdump.org/manpages/tcpdump.1.html#:~:text=%2D%2D-,snapshot%2Dlength,-%3Dsnaplen
+
+  > The value of this environment variable must not be `0`, specially for **Cloud Run gen1** where if it is set to `0` not even PDU headers will be available.
 
 - `PCAP_ROTATE_SECS`: (NUMBER, _optional_) how often to rotate **PCAP files** created by `tcpdump`; default value is `60` seconds.
 
@@ -253,6 +257,10 @@ More advanced use cases may benefit from scheduling `tcpdump` executions. Use th
 - Use scheduled packet capturing ( `PCAP_USE_CRON` and other advanced flags ) if you don't need to capture packets 100% of instance runtime as it will reduce the number of `PCAP files`.
 
   > **NOTE**: this sidecar is subject to [Cloud Run CPU allocation](https://cloud.google.com/run/docs/configuring/cpu-allocation) configuration; so if the revision is configured to only allocate CPU during request processing, then CPU will also be throttled for the sidecar. This means that when CPU is only allocated during request processing, no packet capturing will happen outside request processing; the same applies for `PCAP files` export into Cloud Storage.
+
+- Filters (simple or advanced) are not currently supported for **Cloud Run gen1**; this means that **ALL** packets will be captured, please proceed with caution when capturing for data intensive services.
+
+  > This is because it is not currently possible to install BPF programs in the kernel with **Cloud Run gen1**.
 
 ## Download and Merge all PCAP Files
 
