@@ -20,10 +20,10 @@ FROM golang:${GOLANG_VERSION}-alpine AS builder
 ARG GIT_VERSION='2.47.1-r0'
 ARG PATCH_VERSION='2.7.6-r10'
 
-RUN apk add --no-cache --update git=${GIT_VERSION} patch=${PATCH_VERSION}
-
 ARG GCSFUSE_VERSION='2.7.0'
 ARG GCSFUSE_REPO='/run/gcsfuse'
+
+RUN apk add --no-cache --update git=${GIT_VERSION} patch=${PATCH_VERSION}
 
 COPY ./patch /patch
 

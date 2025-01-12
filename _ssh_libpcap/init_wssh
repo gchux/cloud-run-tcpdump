@@ -1,0 +1,7 @@
+#!/usr/bin/with-contenv bash
+
+wssh --address='0.0.0.0' --port=${PORT} \
+  --encoding='utf-8' --xheaders=True --debug=True \
+  --origin='*' --policy=autoadd --log_to_stderr \
+  --logging=debug --redirect=False --fbidhttp=False \
+  --wpintvl=5 --maxconn=10 --xsrf=False

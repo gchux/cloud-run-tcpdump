@@ -130,6 +130,8 @@ var (
 	errGaeDisabled      = errors.New("GAE JSON log disabled")
 )
 
+var gaeJSONInterval = 0 // disable time based file rotation
+
 const (
 	INFO  jLogLevel = "INFO"
 	ERROR jLogLevel = "ERROR"
@@ -137,14 +139,18 @@ const (
 )
 
 const (
-	fileNamePattern   = "%d_%s__%%Y%%m%%dT%%H%%M%%S"
-	runFileOutput     = `%s/part__` + fileNamePattern
-	gaeFileOutput     = `/var/log/app_engine/app/app_pcap__` + fileNamePattern
-	pcapLockFile      = "/var/lock/pcap.lock"
-	defaultPcapFilter = "(tcp or udp or icmp or icmp6) and (ip or ip6)"
+	fileNamePattern      = "%d_%s__%%Y%%m%%dT%%H%%M%%S"
+	runFileOutput        = `%s/part__` + fileNamePattern
+	gaeFileOutput        = `/var/log/app_engine/app/app_pcap__` + fileNamePattern
+	pcapLockFile         = "/var/lock/pcap.lock"
+	defaultPcapFilter    = "(tcp or udp or icmp or icmp6) and (ip or ip6)"
+	devicesRegexTemplate = "^(?:(?:lo$)|(?:(?:ipvlan-)?%s\\d+.*$))"
 )
 
-var gaeJSONInterval = 0 // disable time based file rotation
+const (
+	any_iface_name  string = "any"
+	any_iface_index int    = int(0)
+)
 
 func jlog(severity jLogLevel, job *tcpdumpJob, message string) {
 	now := time.Now()
@@ -328,8 +334,20 @@ func createTasks(
 	isGAE, err := strconv.ParseBool(gaeEnvVar)
 	isGAE = (err == nil && isGAE) || *gcpGAE
 
-	ifaceRegexp := regexp.MustCompile(fmt.Sprintf("^(?:(?:lo$)|(?:(?:ipvlan-)?%s\\d+.*$))", iface))
-	devices, _ := pcap.FindDevicesByRegex(ifaceRegexp)
+	var devices []*pcap.PcapDevice = nil
+	if strings.EqualFold(iface, any_iface_name) {
+		devices = []*pcap.PcapDevice{
+			{
+				NetInterface: &net.Interface{
+					Name:  any_iface_name,
+					Index: any_iface_index,
+				},
+			},
+		}
+	} else {
+		ifaceRegexp := regexp.MustCompile(fmt.Sprintf(devicesRegexTemplate, iface))
+		devices, _ = pcap.FindDevicesByRegex(ifaceRegexp)
+	}
 
 	for _, device := range devices {
 

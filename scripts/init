@@ -55,7 +55,9 @@ PCAP_JSONDUMP_LOG="${PCAP_JSON_LOG:-false}"
 # short-rotate-secs == small-pcap-files
 # If APP is data intensive: keep this value small to avoid memory saturation
 PCAP_SECS=${PCAP_ROTATE_SECS:-60}
-PCAP_SNAPLEN=${PCAP_SNAPSHOT_LENGTH:-0}
+
+# for Cloud Run gen1 snapshot length cannot be 0
+PCAP_SNAPLEN=${PCAP_SNAPSHOT_LENGTH:-65536}
 
 echo "PCAP_EXEC_ENV=${PCAP_EXEC_ENV}" >> ${ENV_FILE}
 echo "PROJECT_ID=${GOOGLE_CLOUD_PROJECT}" >> ${ENV_FILE}

@@ -23,8 +23,6 @@ ARG BIN_NAME='tcpdumpw'
 
 WORKDIR /app
 
-RUN go install mvdan.cc/gofumpt@latest
-
 COPY ./go.mod go.mod
 COPY ./go.sum go.sum
 COPY ./main.go main.go
@@ -33,10 +31,11 @@ COPY ./pkg pkg
 ENV GOOS=linux
 ENV GOARCH=amd64
 
-RUN gofumpt -l -w ./main.go
-RUN go mod tidy -compat=1.22.4
-RUN go mod download
-RUN go build -a -v -tags json -o /app/bin/${BIN_NAME} main.go
+RUN go install mvdan.cc/gofumpt@latest \
+  && gofumpt -l -w ./main.go \
+  && go mod tidy -compat=1.22.4 \
+  && go mod download \
+  && go build -a -v -tags json -o /app/bin/${BIN_NAME} main.go
 
 FROM scratch AS releaser
 COPY --link --from=builder /app/bin/${BIN_NAME} /
