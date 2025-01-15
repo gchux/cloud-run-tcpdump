@@ -27,6 +27,7 @@ import (
 type (
 	TCPFlagsFilterProvider struct {
 		*pcap.PcapFilter
+		pcap.PcapFilters
 	}
 )
 
@@ -70,6 +71,8 @@ func (p *TCPFlagsFilterProvider) Get(ctx context.Context) (*string, bool) {
 	flagsSet.Each(func(flagStr string) bool {
 		if flag, ok := tcpFlags[flagStr]; ok {
 			setFlags |= flag
+			_flagStr := strings.ToUpper(flagStr)
+			p.AddTCPFlags(pcap.TCPFlag(_flagStr))
 		} else {
 			flagsSet.Remove(flagStr)
 		}
@@ -80,8 +83,7 @@ func (p *TCPFlagsFilterProvider) Get(ctx context.Context) (*string, bool) {
 		return nil, false
 	}
 
-	ip6Filter := stringFormatter.Format("ip6[13+40]&0x{0}!=0",
-		strconv.FormatUint(uint64(setFlags), 16))
+	ip6Filter := stringFormatter.Format("ip6[13+40]&0x{0}!=0", strconv.FormatUint(uint64(setFlags), 16))
 	// OR'ing out all the TCP flags: if any of the flags is set, packet will be captured
 	ip4Filter := stringFormatter.Format("tcp-{0}", strings.Join(flagsSet.ToSlice(), "|tcp-"))
 	// bitwise intersection should not yield 0, so intersection must not be empty
@@ -105,9 +107,13 @@ func (p *TCPFlagsFilterProvider) Apply(
 	return applyFilter(ctx, srcFilter, p, mode)
 }
 
-func newTCPFlagsFilterProvider(filter *pcap.PcapFilter) pcap.PcapFilterProvider {
+func newTCPFlagsFilterProvider(
+	filter *pcap.PcapFilter,
+	compatFilters pcap.PcapFilters,
+) pcap.PcapFilterProvider {
 	provider := &TCPFlagsFilterProvider{
-		PcapFilter: filter,
+		PcapFilter:  filter,
+		PcapFilters: compatFilters,
 	}
 	return provider
 }

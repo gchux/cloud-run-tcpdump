@@ -26,6 +26,7 @@ import (
 type (
 	L3ProtoFilterProvider struct {
 		*pcap.PcapFilter
+		pcap.PcapFilters
 	}
 )
 
@@ -87,9 +88,13 @@ func (p *L3ProtoFilterProvider) Apply(
 	return applyFilter(ctx, srcFilter, p, mode)
 }
 
-func newL3ProtoFilterProvider(filter *pcap.PcapFilter) pcap.PcapFilterProvider {
+func newL3ProtoFilterProvider(
+	filter *pcap.PcapFilter,
+	compatFilters pcap.PcapFilters,
+) pcap.PcapFilterProvider {
 	provider := &L3ProtoFilterProvider{
-		PcapFilter: filter,
+		PcapFilter:  filter,
+		PcapFilters: compatFilters,
 	}
 	return provider
 }

@@ -74,6 +74,7 @@ var (
 	ipv6       = flag.String("ipv6", "", "IPv6s or CIDR to be applied to the packet filter")
 	tcp_flags  = flag.String("tcp_flags", "", "TCP flags to be set for a segment to be captured")
 	ephemerals = flag.String("ephemerals", "32768,65535", "range of ephemeral ports")
+	compat     = flag.Bool("compat", false, "apply filters in Cloud Run gen1 mode")
 )
 
 type (
@@ -295,24 +296,27 @@ func tcpdump(timeout time.Duration) error {
 func newPcapConfig(
 	iface, format, output, extension, filter string,
 	filters []pcap.PcapFilterProvider,
+	compatFilters pcap.PcapFilters,
 	snaplen, interval int,
-	ordered, conntrack bool,
+	compat, ordered, conntrack bool,
 	ephemerals *pcap.PcapEmphemeralPorts,
 ) *pcap.PcapConfig {
 	return &pcap.PcapConfig{
-		Promisc:    true,
-		Iface:      iface,
-		Snaplen:    snaplen,
-		TsType:     "",
-		Format:     format,
-		Output:     output,
-		Extension:  extension,
-		Filter:     filter,
-		Interval:   interval,
-		Ordered:    ordered,
-		ConnTrack:  conntrack,
-		Filters:    filters,
-		Ephemerals: ephemerals,
+		Compat:        compat,
+		Promisc:       true,
+		Iface:         iface,
+		Snaplen:       snaplen,
+		TsType:        "",
+		Format:        format,
+		Output:        output,
+		Extension:     extension,
+		Filter:        filter,
+		Interval:      interval,
+		Ordered:       ordered,
+		ConnTrack:     conntrack,
+		Filters:       filters,
+		CompatFilters: compatFilters,
+		Ephemerals:    ephemerals,
 	}
 }
 
@@ -320,8 +324,9 @@ func createTasks(
 	ctx context.Context,
 	ifacePrefix, timezone, directory, extension, filter *string,
 	filters []pcap.PcapFilterProvider,
+	compatFilters pcap.PcapFilters,
 	snaplen, interval *int,
-	tcpdump, jsondump, jsonlog, ordered, conntrack, gcpGAE *bool,
+	compat, tcpdump, jsondump, jsonlog, ordered, conntrack, gcpGAE *bool,
 	ephemerals *pcap.PcapEmphemeralPorts,
 ) []*pcapTask {
 	tasks := []*pcapTask{}
@@ -359,8 +364,8 @@ func createTasks(
 
 		output := fmt.Sprintf(runFileOutput, *directory, netIface.Index, netIface.Name)
 
-		tcpdumpCfg := newPcapConfig(iface, "pcap", output, *extension, *filter, filters, *snaplen, *interval, *ordered, *conntrack, ephemerals)
-		jsondumpCfg := newPcapConfig(iface, "json", output, "json", *filter, filters, *snaplen, *interval, *ordered, *conntrack, ephemerals)
+		tcpdumpCfg := newPcapConfig(iface, "pcap", output, *extension, *filter, filters, compatFilters, *snaplen, *interval, *compat, *ordered, *conntrack, ephemerals)
+		jsondumpCfg := newPcapConfig(iface, "json", output, "json", *filter, filters, compatFilters, *snaplen, *interval, *compat, *ordered, *conntrack, ephemerals)
 
 		// premature optimization is the root of all evil
 		var engineErr, writerErr error = nil, nil
@@ -505,6 +510,7 @@ func waitDone(job *tcpdumpJob, pcapMutex *flock.Flock, exitSignal *string) {
 func appendFilter(
 	ctx context.Context,
 	filters []pcap.PcapFilterProvider,
+	compatFilters pcap.PcapFilters,
 	rawFilter *string,
 	factory pcapFilter.PcapFilterProviderFactory,
 ) []pcap.PcapFilterProvider {
@@ -519,7 +525,7 @@ func appendFilter(
 		}
 	}
 
-	filter := factory(rawFilter)
+	filter := factory(rawFilter, compatFilters)
 	filters = append(filters, filter)
 	jlog(INFO, &emptyTcpdumpJob, stringFormatter.Format("using filter: {0}", filter.String()))
 
@@ -544,15 +550,16 @@ func main() {
 		*filter = ""
 	}
 
+	compatFilters := pcap.NewPcapFilters()
 	filters := []pcap.PcapFilterProvider{}
 	if *filter == "" {
 		// if complex filter is empty, build it using 'Simple PCAP filters'
-		filters = appendFilter(ctx, filters, l3_protos, pcapFilter.NewL3ProtoFilterProvider)
-		filters = appendFilter(ctx, filters, l4_protos, pcapFilter.NewL4ProtoFilterProvider)
-		filters = appendFilter(ctx, filters, ports, pcapFilter.NewPortsFilterProvider)
-		filters = appendFilter(ctx, filters, tcp_flags, pcapFilter.NewTCPFlagsFilterProvider)
+		filters = appendFilter(ctx, filters, compatFilters, l3_protos, pcapFilter.NewL3ProtoFilterProvider)
+		filters = appendFilter(ctx, filters, compatFilters, l4_protos, pcapFilter.NewL4ProtoFilterProvider)
+		filters = appendFilter(ctx, filters, compatFilters, ports, pcapFilter.NewPortsFilterProvider)
+		filters = appendFilter(ctx, filters, compatFilters, tcp_flags, pcapFilter.NewTCPFlagsFilterProvider)
 
-		ipFilterProvider := pcapFilter.NewIPFilterProvider(ipv4, ipv6, hosts)
+		ipFilterProvider := pcapFilter.NewIPFilterProvider(ipv4, ipv6, hosts, compatFilters)
 		if _, ok := ipFilterProvider.Get(ctx); ok {
 			jlog(INFO, &emptyTcpdumpJob, stringFormatter.
 				Format("using filter: {0}", ipFilterProvider.String()))
@@ -593,8 +600,8 @@ func main() {
 	}
 
 	tasks := createTasks(ctx, pcap_iface, timezone, directory, extension,
-		filter, filters, snaplen, interval, tcp_dump, json_dump, json_log,
-		ordered, conntrack, gcp_gae, ephemeralPortRange)
+		filter, filters, compatFilters, snaplen, interval, compat, tcp_dump,
+		json_dump, json_log, ordered, conntrack, gcp_gae, ephemeralPortRange)
 
 	if len(tasks) == 0 {
 		jlog(FATAL, &emptyTcpdumpJob, "no PCAP tasks available")

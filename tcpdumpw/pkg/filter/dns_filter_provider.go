@@ -28,7 +28,8 @@ import (
 type (
 	DNSFilterProvider struct {
 		*pcap.PcapFilter
-		resolver *net.Resolver
+		resolver      *net.Resolver
+		compatFilters pcap.PcapFilters
 	}
 )
 
@@ -68,6 +69,11 @@ func (p *DNSFilterProvider) hostsToIPs(ctx context.Context) (mapset.Set[string],
 			for _, IP := range IPs {
 				if addr, err := netip.ParseAddr(IP); err == nil {
 					ipSet.Add(addr.String())
+					if addr.Is4() {
+						p.compatFilters.AddIPv4s(IP)
+					} else {
+						p.compatFilters.AddIPv6s(IP)
+					}
 				}
 			}
 		}
@@ -99,15 +105,22 @@ func (p *DNSFilterProvider) Apply(
 	return applyFilter(ctx, srcFilter, p, mode)
 }
 
-func newDNSFilterProvider(filter *pcap.PcapFilter) pcap.PcapFilterProvider {
+func newDNSFilterProvider(
+	filter *pcap.PcapFilter,
+	compatFilters pcap.PcapFilters,
+) pcap.PcapFilterProvider {
 	return &DNSFilterProvider{
 		PcapFilter: filter,
 		resolver: &net.Resolver{
 			PreferGo: true,
 		},
+		compatFilters: compatFilters,
 	}
 }
 
-func newDNSFilterProviderFromRawFilter(rawFilter *string) pcap.PcapFilterProvider {
-	return newDNSFilterProvider(&pcap.PcapFilter{Raw: rawFilter})
+func newDNSFilterProviderFromRawFilter(
+	rawFilter *string,
+	compatFilters pcap.PcapFilters,
+) pcap.PcapFilterProvider {
+	return newDNSFilterProvider(&pcap.PcapFilter{Raw: rawFilter}, compatFilters)
 }

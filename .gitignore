@@ -2,7 +2,6 @@ bin/
 tmp/
 local_only
 local-only
-
 .task/
 
 Taskfile.local.yaml

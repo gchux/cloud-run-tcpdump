@@ -27,6 +27,7 @@ import (
 type (
 	PortsFilterProvider struct {
 		*pcap.PcapFilter
+		pcap.PcapFilters
 	}
 )
 
@@ -44,7 +45,9 @@ func (p *PortsFilterProvider) Get(ctx context.Context) (*string, bool) {
 	portSet.Each(func(portStr string) bool {
 		if portStr == "" || strings.EqualFold(portStr, "ALL") || strings.EqualFold(portStr, "ANY") {
 			portSet.Remove(portStr)
-		} else if port, err := strconv.ParseUint(portStr, 10, 16); err != nil || port > 0xFFFF {
+		} else if port, err := strconv.ParseUint(portStr, 10, 16); err != nil || port <= 0xFFFF {
+			p.AddPorts(uint16(port))
+		} else {
 			// a PORT must be a number not greater than 65535
 			portSet.Remove(portStr)
 		}
@@ -76,9 +79,13 @@ func (p *PortsFilterProvider) Apply(
 	return applyFilter(ctx, srcFilter, p, mode)
 }
 
-func newPortsFilterProvider(filter *pcap.PcapFilter) pcap.PcapFilterProvider {
+func newPortsFilterProvider(
+	filter *pcap.PcapFilter,
+	compatFilters pcap.PcapFilters,
+) pcap.PcapFilterProvider {
 	provider := &PortsFilterProvider{
-		PcapFilter: filter,
+		PcapFilter:  filter,
+		PcapFilters: compatFilters,
 	}
 	return provider
 }

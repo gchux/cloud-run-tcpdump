@@ -29,6 +29,7 @@ type (
 		ipv4Filter        *pcap.PcapFilter
 		ipv6Filter        *pcap.PcapFilter
 		dnsFilterProvider *DNSFilterProvider
+		compatFilters     pcap.PcapFilters
 	}
 )
 
@@ -63,6 +64,12 @@ func (p *IPFilterProvider) getIPsAndNETs(_ context.Context) ([]string, []string)
 		} else if net, err := netip.ParsePrefix(IPorNET); err == nil {
 			if net.IsValid() {
 				NETs = append(NETs, net.String())
+				addr := net.Addr()
+				if addr.Is4() {
+					p.compatFilters.AddIPv4Ranges(IPorNET)
+				} else {
+					p.compatFilters.AddIPv6Ranges(IPorNET)
+				}
 			}
 		}
 	}
@@ -94,6 +101,10 @@ func (p *IPFilterProvider) Get(ctx context.Context) (*string, bool) {
 				// if any NET already contains this IP,
 				// then keep the NET and drop the IP.
 				ipSet.Remove(ip)
+			} else if IP.Is4() {
+				p.compatFilters.AddIPv4s(ip)
+			} else if IP.Is6() {
+				p.compatFilters.AddIPv6s(ip)
 			}
 			return false
 		})
@@ -144,11 +155,13 @@ func (p *IPFilterProvider) Apply(
 
 func newIPFilterProvider(
 	ipv4RawFilter, ipv6RawFilter, dnsRawFiler *string,
+	compatFilters pcap.PcapFilters,
 ) pcap.PcapFilterProvider {
 	provider := &IPFilterProvider{
 		ipv4Filter:        &pcap.PcapFilter{Raw: ipv4RawFilter},
 		ipv6Filter:        &pcap.PcapFilter{Raw: ipv6RawFilter},
-		dnsFilterProvider: newDNSFilterProviderFromRawFilter(dnsRawFiler).(*DNSFilterProvider),
+		dnsFilterProvider: newDNSFilterProviderFromRawFilter(dnsRawFiler, compatFilters).(*DNSFilterProvider),
+		compatFilters:     compatFilters,
 	}
 	return provider
 }
