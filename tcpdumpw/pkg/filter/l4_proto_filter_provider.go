@@ -61,12 +61,16 @@ func (p *L4ProtoFilterProvider) Get(ctx context.Context) (*string, bool) {
 		switch proto {
 		case "tcp", "6", "0x06":
 			l4Protos.Add(string(l4_PROTO_TCP_FILTER))
+			p.AddL4Protos(0x06)
 		case "udp", "17", "0x11":
 			l4Protos.Add(string(l4_PROTO_UDP_FILTER))
+			p.AddL4Protos(0x11)
 		case "icmp", "icmp4", "1", "0x01":
 			l4Protos.Add(string(l4_PROTO_ICMPv4_FILTER))
+			p.AddL4Protos(0x01)
 		case "icmp6", "58", "0x3A":
 			l4Protos.Add(string(l4_PROTO_ICMPv6_FILTER))
+			p.AddL4Protos(0x3A)
 		}
 	}
 

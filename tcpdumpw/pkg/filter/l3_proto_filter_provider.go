@@ -31,15 +31,14 @@ type (
 )
 
 const (
-	l3_PROTO_DEFAULT_FILTER string = "ip or ip6"
+	l3_PROTO_DEFAULT_FILTER string = "ip or ip6 or arp"
 	l3_PROTO_IPv4_FILTER    string = "ip"
 	l3_PROTO_IPv6_FILTER    string = "ip6"
+	l3_PROTO_ARP_FILTER     string = "arp"
 )
 
 func (p *L3ProtoFilterProvider) Get(ctx context.Context) (*string, bool) {
 	if *p.Raw == "" ||
-		*p.Raw == "45" || // IPv4(4) + IPv6(41)
-		*p.Raw == "0x2D" || // IPv4(0x04) + IPv6(0x29)
 		strings.EqualFold(*p.Raw, "ALL") ||
 		strings.EqualFold(*p.Raw, "ANY") ||
 		strings.EqualFold(*p.Raw, l3_PROTO_DEFAULT_FILTER) {
@@ -59,8 +58,12 @@ func (p *L3ProtoFilterProvider) Get(ctx context.Context) (*string, bool) {
 		switch proto {
 		case "ip", "ip4", "ipv4", "4", "0x04":
 			l3Protos.Add(string(l3_PROTO_IPv4_FILTER))
+			p.AddL3Protos(0x04)
 		case "ip6", "ipv6", "41", "0x29":
 			l3Protos.Add(string(l3_PROTO_IPv6_FILTER))
+			p.AddL3Protos(0x29)
+		case "arp", "0x0806":
+			l3Protos.Add(string(l3_PROTO_ARP_FILTER))
 		}
 	}
 
