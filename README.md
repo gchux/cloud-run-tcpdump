@@ -263,9 +263,7 @@ More advanced use cases may benefit from scheduling `tcpdump` executions. Use th
 
   > **NOTE**: this sidecar is subject to [Cloud Run CPU allocation](https://cloud.google.com/run/docs/configuring/cpu-allocation) configuration; so if the revision is configured to only allocate CPU during request processing, then CPU will also be throttled for the sidecar. This means that when CPU is only allocated during request processing, no packet capturing will happen outside request processing; the same applies for `PCAP files` export into Cloud Storage.
 
-- Filters (simple or advanced) are not currently supported for **Cloud Run gen1**; this means that **ALL** packets will be captured, please proceed with caution when capturing for data intensive services.
-
-  > This is because it is not currently possible to install BPF programs in the kernel with **Cloud Run gen1**.
+- The advanced congifuration `PCAP_FILTER` is not currently supported for **Cloud Run gen1**; this means that in order to apply packets filtering you should use the simple filters: `PCAP_IPV4`, `PCAP_IPV6`, `PCAP_HOSTS`, `PCAP_PORTS`, `PCAP_TCP_FLAGS`, `PCAP_L3_PROTOS`, and `PCAP_L4_PROTOS`.
 
 ## Download and Merge all PCAP Files
 

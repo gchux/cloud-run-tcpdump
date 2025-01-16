@@ -23,7 +23,7 @@ ARG PATCH_VERSION='2.7.6-r10'
 ARG GCSFUSE_VERSION='2.7.0'
 ARG GCSFUSE_REPO='/run/gcsfuse'
 
-RUN apk add --no-cache --update git=${GIT_VERSION} patch=${PATCH_VERSION}
+RUN apk add --no-cache --update git patch
 
 COPY ./patch /patch
 
