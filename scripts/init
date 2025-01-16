@@ -59,6 +59,7 @@ PCAP_SECS=${PCAP_ROTATE_SECS:-60}
 # for Cloud Run gen1 snapshot length cannot be 0
 PCAP_SNAPLEN=${PCAP_SNAPSHOT_LENGTH:-65536}
 
+echo "PCAP_COMPAT=${PCAP_COMPAT:-false}" >> ${ENV_FILE}
 echo "PCAP_EXEC_ENV=${PCAP_EXEC_ENV}" >> ${ENV_FILE}
 echo "PROJECT_ID=${GOOGLE_CLOUD_PROJECT}" >> ${ENV_FILE}
 echo "GCP_REGION=${GCP_REGION}" >> ${ENV_FILE}

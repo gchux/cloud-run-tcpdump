@@ -14,6 +14,8 @@ fi
 
 export MAIN_PID=$$
 
+export PCAP_RT_ENV="${ENV}"
+
 export BIN_DIR="$(pwd)/bin"
 export BASE_IMAGE_DIR="$(pwd)/base-image"
 export SUPERVISORD_DIR="$(pwd)/supervisord"
@@ -80,7 +82,7 @@ function docker_release {
     --no-cache --push \
     --platform=linux/amd64 \
     --file="$(pwd)/Dockerfile" \
-    --build-arg="PCAP_RT_ENV=${ENV}" \
+    --build-arg="PCAP_RT_ENV=${PCAP_RT_ENV}" \
     --build-arg="LIBPCAP_VERSION=${LIBPCAP_VERSION}" \
     --build-arg="TCPDUMP_VERSION=${TCPDUMP_VERSION}" \
     --label="LIBPCAP_VERSION=${LIBPCAP_VERSION}" \
@@ -100,7 +102,7 @@ docker_build ${PCAPFSN_DIR}
 docker_build ${TCPDUMPW_DIR}
 
 # patch GCSFuse for Cloud Run gen1
-if [[ "$ENV" == "cloud_run_gen1" ]]; then
+if [[ "$PCAP_RT_ENV" == "cloud_run_gen1" ]]; then
   docker_build ${GCSFUSE_DIR}
 fi
 

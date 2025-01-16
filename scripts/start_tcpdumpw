@@ -9,11 +9,11 @@ while : ; do
     sleep 1
 done
 
-PCAP_COMPAT='false'
 EPHEMERAL_PORT_RANGE=`cat /proc/sys/net/ipv4/ip_local_port_range | tr '\t' ' ' | tr -s ' ' | tr ' ' ',' | tr -d '\n'`
 
 export PCAP_IFACE_SAFE="${PCAP_IFACE:-eth}"
 if [[ "${PCAP_RT_ENV}" == "cloud_run_gen1" ]]; then
+    # make execution safe for Cloud Run gen1
     unset PCAP_IFACE_SAFE
     export PCAP_IFACE_SAFE='any'
     unset PCAP_COMPAT
@@ -52,4 +52,5 @@ exec env /bin/tcpdumpw \
     -ports="${PCAP_PORTS:-ALL}" \
     -tcp_flags="${PCAP_TCP_FLAGS:-ANY}" \
     -ephemerals="${EPHEMERAL_PORT_RANGE:-32768,65535}" \
+    -rt_env="${PCAP_RT_ENV:-cloud_run_gen2}" \
     -compat="${PCAP_COMPAT:-false}"

@@ -39,7 +39,12 @@ const (
 	defaultIPfilter = "net " + defaultIPv4Net + " or net " + defaultIPv6Net
 )
 
-func (p *IPFilterProvider) getIPsAndNETs(_ context.Context) ([]string, []string) {
+func (p *IPFilterProvider) getIPsAndNETs(
+	_ context.Context,
+) (
+	[]string, /* IPs */
+	[]string, /* NETs */
+) {
 	if *p.ipv4Filter.Raw == "" && *p.ipv6Filter.Raw == "" {
 		return []string{}, []string{}
 	}
@@ -62,18 +67,20 @@ func (p *IPFilterProvider) getIPsAndNETs(_ context.Context) ([]string, []string)
 				IPs = append(IPs, addr.String())
 			}
 		} else if net, err := netip.ParsePrefix(IPorNET); err == nil {
-			if net.IsValid() {
-				NETs = append(NETs, net.String())
-				addr := net.Addr()
-				if addr.Is4() {
-					p.compatFilters.AddIPv4Ranges(IPorNET)
-				} else {
-					p.compatFilters.AddIPv6Ranges(IPorNET)
-				}
+			if !net.IsValid() {
+				continue
+			}
+			NETs = append(NETs, net.String())
+			addr := net.Addr()
+			if addr.Is4() {
+				p.compatFilters.AddIPv4Ranges(IPorNET)
+			} else {
+				p.compatFilters.AddIPv6Ranges(IPorNET)
 			}
 		}
 	}
 
+	// ALL returned IPs and Networks are SAFE
 	return IPs, NETs
 }
 

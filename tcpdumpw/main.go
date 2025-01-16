@@ -65,7 +65,7 @@ var (
 	gcp_gae    = flag.Bool("gae", false, "enable GAE Flex environment configuration")
 	pcap_iface = flag.String("iface", "", "prefix to scan for network interfaces to capture from")
 	hc_port    = flag.Uint("hc_port", 12345, "TCP port for health checking")
-	filter     = flag.String("filter", "", "BPF filter to be used for capturing packets")
+	filter     = flag.String("filter", pcap.PcapDefaultFilter, "BPF filter to be used for capturing packets")
 	l3_protos  = flag.String("l3_protos", "ipv4,ipv6", "FQDNs to be translated into IPs to apply as packet filter")
 	l4_protos  = flag.String("l4_protos", "tcp,udp", "FQDNs to be translated into IPs to apply as packet filter")
 	hosts      = flag.String("hosts", "", "FQDNs to be translated into IPs to apply as packet filter")
@@ -75,6 +75,7 @@ var (
 	tcp_flags  = flag.String("tcp_flags", "", "TCP flags to be set for a segment to be captured")
 	ephemerals = flag.String("ephemerals", "32768,65535", "range of ephemeral ports")
 	compat     = flag.Bool("compat", false, "apply filters in Cloud Run gen1 mode")
+	rt_env     = flag.String("rt_env", "cloud_run_gen2", "runtime where PCAP sidecar is used")
 )
 
 type (
@@ -149,8 +150,8 @@ const (
 )
 
 const (
-	any_iface_name  string = "any"
-	any_iface_index int    = int(0)
+	anyIfaceName  string = "any"
+	anyIfaceIndex int    = int(0)
 )
 
 func jlog(severity jLogLevel, job *tcpdumpJob, message string) {
@@ -340,12 +341,12 @@ func createTasks(
 	isGAE = (err == nil && isGAE) || *gcpGAE
 
 	var devices []*pcap.PcapDevice = nil
-	if strings.EqualFold(iface, any_iface_name) {
+	if strings.EqualFold(iface, anyIfaceName) {
 		devices = []*pcap.PcapDevice{
 			{
 				NetInterface: &net.Interface{
-					Name:  any_iface_name,
-					Index: any_iface_index,
+					Name:  anyIfaceName,
+					Index: anyIfaceIndex,
 				},
 			},
 		}
@@ -532,6 +533,39 @@ func appendFilter(
 	return filters
 }
 
+func parseEphemeralPorts(ephemerals *string) *pcap.PcapEmphemeralPorts {
+	// default ephemeral ports range
+	ephemeralPortRange := &pcap.PcapEmphemeralPorts{
+		Min: pcap.PCAP_MIN_EPHEMERAL_PORT,
+		Max: pcap.PCAP_MAX_EPHEMERAL_PORT,
+	}
+
+	if *ephemerals == "" {
+		return ephemeralPortRange
+	}
+
+	ephemeralPorts := strings.SplitN(*ephemerals, ",", 2)
+
+	if len(ephemeralPorts) != 2 {
+		return ephemeralPortRange
+	}
+
+	for i, valueStr := range ephemeralPorts {
+		if value, err := strconv.ParseUint(valueStr, 10, 16); err != nil && value >= 0x0400 && value <= 0xFFFF {
+			// see: https://datatracker.ietf.org/doc/html/rfc6056#page-5
+			// a valid `ephemeral port` must be within RFC 6056 range: [1024/0x4000,65535/0xFFFF]
+			port := uint16(value)
+			if i == 0 && port < ephemeralPortRange.Max {
+				ephemeralPortRange.Min = uint16(value)
+			} else if port > ephemeralPortRange.Min {
+				ephemeralPortRange.Max = uint16(value)
+			}
+		}
+	}
+
+	return ephemeralPortRange
+}
+
 func main() {
 	flag.Parse()
 
@@ -546,13 +580,16 @@ func main() {
 	jid.Store(uuid.Nil)
 	xid.Store(uuid.Nil)
 
-	if strings.EqualFold(*filter, "DISABLED") {
+	if *compat || strings.EqualFold(*filter, "DISABLED") {
 		*filter = ""
+	} else {
+		*filter = strings.TrimSpace(*filter)
 	}
 
 	compatFilters := pcap.NewPcapFilters()
 	filters := []pcap.PcapFilterProvider{}
-	if *filter == "" {
+
+	if *compat || *filter == "" {
 		// if complex filter is empty, build it using 'Simple PCAP filters'
 		filters = appendFilter(ctx, filters, compatFilters, l3_protos, pcapFilter.NewL3ProtoFilterProvider)
 		filters = appendFilter(ctx, filters, compatFilters, l4_protos, pcapFilter.NewL4ProtoFilterProvider)
@@ -561,43 +598,19 @@ func main() {
 
 		ipFilterProvider := pcapFilter.NewIPFilterProvider(ipv4, ipv6, hosts, compatFilters)
 		if _, ok := ipFilterProvider.Get(ctx); ok {
-			jlog(INFO, &emptyTcpdumpJob, stringFormatter.
-				Format("using filter: {0}", ipFilterProvider.String()))
+			jlog(INFO, &emptyTcpdumpJob, stringFormatter.Format("using filter: {0}", ipFilterProvider.String()))
 			filters = append(filters, ipFilterProvider)
 		}
 
-		if len(filters) == 0 { // if no simple filters are available, use a default 'catch-all' filter
+		if len(filters) == 0 && !*compat {
+			// if no simple filters are available:
+			//   - use a default 'catch-all' filter
+			//   		- but only if compat mode is disabled
 			*filter = string(pcap.PcapDefaultFilter)
 		}
 	}
 
-	// default ephemeral ports range
-	ephemeralPortRange := &pcap.PcapEmphemeralPorts{
-		Min: pcap.PCAP_MIN_EPHEMERAL_PORT,
-		Max: pcap.PCAP_MAX_EPHEMERAL_PORT,
-	}
-	if *ephemerals != "" {
-		ephemeralPorts := strings.SplitN(*ephemerals, ",", 2)
-		if len(ephemeralPorts) == 2 {
-			for i, valueStr := range ephemeralPorts {
-				if value, err := strconv.ParseUint(valueStr, 10, 16); err == nil && value >= 0x0400 && value <= 0xFFFF {
-					// see: https://datatracker.ietf.org/doc/html/rfc6056#page-5
-					// a valid `ephemeral port` must be within RFC 6056 range: [1024/0x4000,65535/0xFFFF]
-					port := uint16(value)
-					switch i {
-					case 0:
-						if port < ephemeralPortRange.Max {
-							ephemeralPortRange.Min = uint16(value)
-						}
-					default:
-						if port > ephemeralPortRange.Min {
-							ephemeralPortRange.Max = uint16(value)
-						}
-					}
-				}
-			}
-		}
-	}
+	ephemeralPortRange := parseEphemeralPorts(ephemerals)
 
 	tasks := createTasks(ctx, pcap_iface, timezone, directory, extension,
 		filter, filters, compatFilters, snaplen, interval, compat, tcp_dump,

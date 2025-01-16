@@ -19,6 +19,7 @@ The sidecar approach enables decoupling from the main –_ingress_– container 
 ## Features
 
 - Structured Cloud Logging entries that provide easily digestible pcap info.
+  - `ARP` analysis.
   - `ICMPv4` and `ICMPv6` analysis:
     - supported messages: `EchoRequest`, `EchoReply`, `TimeExceeded`, `DestinationUnreachable`, and `Redirect`.
   - `HTTP/1.1` or `HTTP/2` analysis:
@@ -206,6 +207,10 @@ More advanced use cases may benefit from scheduling `tcpdump` executions. Use th
 - `PCAP_TIMEOUT_SECS`: (NUMBER, _optional_) seconds `tcpdump` execution will last; devault value is `0`: execution will not be stopped.
 
   > **NOTE**: if `PCAP_USE_CRON` is set to `true`, you should set this value to less than the time in seconds between scheduled executions.
+
+- **`PCAP_COMPAT`**: (BOOLEAN, _optional_) whether to run the PCAP sidecar in Cloud Run gen1 compatible mode; default value is `false`.
+
+  > When using `latest` or `gen1` container images, this environment variable will be automatically set to `true`.
 
 ## Considerations
 
