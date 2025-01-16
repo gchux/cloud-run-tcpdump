@@ -196,9 +196,7 @@ More advanced use cases may benefit from scheduling `tcpdump` executions. Use th
 
 - `PCAP_FILTER`: (STRING, _optional_) standard `tcpdump` BPF filters to scope the packet capture to specific traffic; i/e: `tcp`. Its default value is `DISABLED`.
 
-  > [!IMPORTANT]
-  >
-  > **`PCAP_FILTER`** is not available for **Cloud Run gen1**.
+  > **`PCAP_FILTER`** is not available for **Cloud Run gen1**; use simple filters instead.
 
 - `PCAP_USE_CRON`: (BOOLEAN, _optional_) whether to enable scheduling of `tcpdump` executions; default value is `false`.
 
