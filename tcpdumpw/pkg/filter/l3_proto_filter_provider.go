@@ -58,10 +58,10 @@ func (p *L3ProtoFilterProvider) Get(ctx context.Context) (*string, bool) {
 		switch proto {
 		case "ip", "ip4", "ipv4", "4", "0x04":
 			l3Protos.Add(string(l3_PROTO_IPv4_FILTER))
-			p.AddL3Protos(0x04)
+			p.AddL3Proto(pcap.L3_PROTO_IPv4)
 		case "ip6", "ipv6", "41", "0x29":
 			l3Protos.Add(string(l3_PROTO_IPv6_FILTER))
-			p.AddL3Protos(0x29)
+			p.AddL3Proto(pcap.L3_PROTO_IPv6)
 		case "arp", "0x0806":
 			l3Protos.Add(string(l3_PROTO_ARP_FILTER))
 		}
