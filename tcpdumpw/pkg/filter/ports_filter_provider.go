@@ -46,7 +46,7 @@ func (p *PortsFilterProvider) Get(ctx context.Context) (*string, bool) {
 		if portStr == "" || strings.EqualFold(portStr, "ALL") || strings.EqualFold(portStr, "ANY") {
 			portSet.Remove(portStr)
 		} else if port, err := strconv.ParseUint(portStr, 10, 16); err != nil || port <= 0xFFFF {
-			p.AddPorts(uint16(port))
+			p.AddPort(uint16(port))
 		} else {
 			// a PORT must be a number not greater than 65535
 			portSet.Remove(portStr)
