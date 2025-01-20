@@ -77,6 +77,8 @@ var (
 	gzip_pcaps = flag.Bool("gzip", false, "compress pcap files")
 	gcp_gae    = flag.Bool("gae", false, "define serverless execution environment")
 	interval   = flag.Uint("interval", 60, "seconds after which tcpdump rotates PCAP files")
+	compat     = flag.Bool("compat", false, "apply filters in Cloud Run gen1 mode")
+	rt_env     = flag.String("rt_env", "cloud_run_gen2", "runtime where PCAP sidecar is used")
 )
 
 var (
@@ -454,7 +456,9 @@ func main() {
 				_, memFlushErr := flushBuffers()
 				memoryAfter, _ := getCurrentMemoryUtilization(isGAE)
 				if memFlushErr != nil {
-					logEvent(zapcore.ErrorLevel, fmt.Sprintf("failed to flush OS file write buffers: [memory=%d] | %+v", memoryAfter, memFlushErr), PCAP_OSWMEM, nil, memFlushErr)
+					logEvent(zapcore.WarnLevel,
+						fmt.Sprintf("failed to flush OS file write buffers: [memory=%d] | %+v",
+							memoryAfter, memFlushErr), PCAP_OSWMEM, nil, memFlushErr)
 					continue
 				}
 				releasedMemory := int64(memoryBefore) - int64(memoryAfter)
