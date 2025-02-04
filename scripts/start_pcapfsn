@@ -3,8 +3,10 @@
 set +x
 
 while : ; do
-    [[ -d ${PCAP_DIR} ]] && break
-    echo "{\"severity\":\"WARNING\",\"message\":\"PCAP files directory is not available: ${PCAP_DIR}\",\"sidecar\":\"${APP_SIDECAR}\",\"module\":\"${PROC_NAME}\"}"
+    [[ -d ${PCAP_DIR} ]] \
+        && echo "{\"severity\":\"INFO\",\"message\":\"PCAP files directory is now available at: ${PCAP_DIR}\",\"sidecar\":\"${APP_SIDECAR}\",\"module\":\"${PROC_NAME}\"}" \
+        && break
+    echo "{\"severity\":\"WARNING\",\"message\":\"Waiting for PCAP files directory to be available at: ${PCAP_DIR} ...\",\"sidecar\":\"${APP_SIDECAR}\",\"module\":\"${PROC_NAME}\"}"
     sleep 1
 done
 

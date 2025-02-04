@@ -117,10 +117,10 @@ echo "PCAP_TCP_FLAGS=${PCAP_TCP_FLAGS:-ALL}" >> ${ENV_FILE}
 echo "PCAP_RT_ENV=@PCAP_RT_ENV@" >> ${ENV_FILE}
 
 # Create both paths to store PCAP files
-mkdir -p ${PCAP_MNT}
-mkdir -p ${PCAP_TMP}
+mkdir -pv ${PCAP_MNT}
+mkdir -pv ${PCAP_TMP}
 
-echo "[INFO] - PCAP files available at: gs://${PCAP_GCS_BUCKET}/${GCS_DIR}"
+echo "[INFO] - PCAP files will be available at: gs://${PCAP_GCS_BUCKET}/${GCS_DIR}"
 
 trap 'kill -TERM $PCAP_PID' TERM INT
 /bin/supervisord --configuration=/tcpdump.conf --env-file=${ENV_FILE} &
