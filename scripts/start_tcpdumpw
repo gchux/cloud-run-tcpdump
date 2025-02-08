@@ -4,8 +4,10 @@ set +x
 
 while : ; do
     pcapfsn_ready=$(ps -efa | grep --color=never '/pcap_fsn' | grep --color=never -v grep | wc -l  | tr -d '\n')
-    [[ "${pcapfsn_ready}" == '1' ]] && break
-    echo "{\"severity\":\"WARNING\",\"message\":\"PCAP FS notifier is not running\",\"sidecar\":\"${APP_SIDECAR}\",\"module\":\"${PROC_NAME}\"}"
+    [[ "${pcapfsn_ready}" == '1' ]] \
+        && echo "{\"severity\":\"INFO\",\"message\":\"PCAP FS notifier is running\",\"sidecar\":\"${APP_SIDECAR}\",\"module\":\"${PROC_NAME}\"}" \
+        && break
+    echo "{\"severity\":\"WARNING\",\"message\":\"Waiting for PCAP FS notifier to run ...\",\"sidecar\":\"${APP_SIDECAR}\",\"module\":\"${PROC_NAME}\"}"
     sleep 1
 done
 
