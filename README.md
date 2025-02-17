@@ -1,7 +1,5 @@
 # Cloud Run `tcpdump` sidecar
 
-Test
-
 This repository contains the source code to create a container image containing `tcpdump` and `pcap-cli` to perform packet capture in [Cloud Run multi-container](https://cloud.google.com/logging/docs/structured-logging) deployments.
 
 Captured packets are optionally translated to JSON and written into [`Cloud Logging`](https://cloud.google.com/logging/docs/structured-logging)
