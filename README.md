@@ -1,5 +1,7 @@
 # Cloud Run `tcpdump` sidecar
 
+Test
+
 This repository contains the source code to create a container image containing `tcpdump` and `pcap-cli` to perform packet capture in [Cloud Run multi-container](https://cloud.google.com/logging/docs/structured-logging) deployments.
 
 Captured packets are optionally translated to JSON and written into [`Cloud Logging`](https://cloud.google.com/logging/docs/structured-logging)
@@ -356,6 +358,22 @@ This approach assumes that Artifact Registry is available in `PROJECT_ID`.
    ```
 
 > See the full list of available flags for `gcloud builds submit`: https://cloud.google.com/sdk/gcloud/reference/builds/submit
+
+### Using Cloud Build Triggers with your own [Github Fork](https://docs.github.com/en/pull-requests/collaborating-with-pull-requests/working-with-forks/fork-a-repo)
+
+4. Fork the [cloud-run-tcpdump](https://github.com/gchux/cloud-run-tcpdump) project using your Github account
+
+5. Using the same Github account, connect [a Github repository using Cloud Build](https://cloud.google.com/build/docs/automating-builds/github/connect-repo-github)
+
+6. Create an [Artifact Registry repository](https://cloud.google.com/artifact-registry/docs/repositories) for storing the container images.
+
+7. Create a [trigger from Github](https://cloud.google.com/build/docs/automating-builds/github/build-repos-from-github).  Use the values from the prior step to populate the following "Substitution variables". Other values can be left to the defaults.
+
+```
+   _REPO_LOCATION # Artifact Registry Docker repository location e.g. us-central1
+   _REPO_NAME     # Artifact Registry Docker repository name
+   _IMAGE_NAME    # The output container image name; i/e: `pcap-sidecar`
+``` 
 
 # Using with App Engine Flexible
 
