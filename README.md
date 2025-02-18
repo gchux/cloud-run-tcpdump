@@ -118,7 +118,6 @@ gcloud run deploy ${SERVICE_NAME} \
   --port=${INGRESS_PORT} \
   --container=${TCPDUMP_SIDECAR_NAME} \
   --image=${TCPDUMP_IMAGE_URI} \
-  --execution-environment=gen2 \
   --cpu=1 --memory=1G \
   --set-env-vars="PCAP_IFACE=${PCAP_IFACE},PCAP_GCS_BUCKET=${PCAP_GCS_BUCKET},PCAP_FILTER=${PCAP_FILTER},PCAP_JSON_LOG=${PCAP_JSON_LOG}"
 ```
