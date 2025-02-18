@@ -375,7 +375,7 @@ We will create our own [forked repository](https://docs.github.com/en/pull-reque
 
 1. Fork the [cloud-run-tcpdump](https://github.com/gchux/cloud-run-tcpdump) project using your Github account.
 
-2. Usie your Github account to connect [a Github repository using Cloud Build](https://cloud.google.com/build/docs/automating-builds/github/connect-repo-github).
+2. Use your Github account to connect [a Github repository using Cloud Build](https://cloud.google.com/build/docs/automating-builds/github/connect-repo-github).
 
 3. Create a new (or use an existing) [Artifact Registry repository](https://cloud.google.com/artifact-registry/docs/repositories) for storing the container images.
 
