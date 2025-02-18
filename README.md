@@ -355,6 +355,7 @@ This approach assumes that Artifact Registry is available in `PROJECT_ID`.
    export REPO_LOCATION='...' # Artifact Registry Docker repository location e.g. us-central1
    export REPO_NAME='...'     # Artifact Registry Docker repository name
    export IMAGE_NAME='...'    # container image name; i/e: `pcap-sidecar`
+   export TAG_NAME='...'      # container image tag; i/e: `v1.0.0-RC`
    ```
 
 5. Build and push the `tcpdump` sidecar container image using Cloud Build:
@@ -363,7 +364,7 @@ This approach assumes that Artifact Registry is available in `PROJECT_ID`.
    gcloud builds submit \
      --project=${PROJECT_ID} \
      --config=$(pwd)/cloudbuild.yaml \
-     --substitutions='_REPO_LOCATION=${REPO_LOCATION},_REPO_NAME=${REPO_NAME},_IMAGE_NAME=${IMAGE_NAME}' $(pwd)
+     --substitutions="_REPO_LOCATION=${REPO_LOCATION},_REPO_NAME=${REPO_NAME},_IMAGE_NAME=${IMAGE_NAME},_TAG_NAME=${TAG_NAME}" $(pwd)
    ```
 
 > See the full list of available flags for `gcloud builds submit`: https://cloud.google.com/sdk/gcloud/reference/builds/submit
