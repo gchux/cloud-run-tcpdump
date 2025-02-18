@@ -330,7 +330,7 @@ More advanced use cases may benefit from scheduling `tcpdump` executions. Use th
    ```
 
 > [!TIP]
-> If you prefer to let Cloud Build perform all the tasks, go directly to build [using Cloud Build](#using-cloud-build) or [using Cloud Build Trigger](#using-a-cloud-build-trigger)
+> If you prefer to let Cloud Build perform all the tasks, go directly to build using [Cloud Build](#using-cloud-build) or [a Cloud Build trigger](#using-a-cloud-build-trigger)
 
 3. Move into the repository local directory: `cd cloud-run-tcpdump`.
 
@@ -369,7 +369,7 @@ This approach assumes that Artifact Registry is available in `PROJECT_ID`.
 
 > See the full list of available flags for `gcloud builds submit`: https://cloud.google.com/sdk/gcloud/reference/builds/submit
 
-### Using a Cloud Build Trigger
+### Using a Cloud Build trigger
 
 We will create our own [forked repository](https://docs.github.com/en/pull-requests/collaborating-with-pull-requests/working-with-forks/fork-a-repo) of the project on Github in order to create a Cloud Build Trigger that will build our container automatically.
 
